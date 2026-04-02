@@ -10,3 +10,12 @@ resources/_gen/
 
 # Editor
 .vscode/
+
+# Humanize plugin cache
+.humanize/
+
+# Codex CLI artifact
+.codex
+
+# Temporary working files
+temp/
