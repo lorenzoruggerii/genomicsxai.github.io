@@ -1,5 +1,5 @@
 <div class="category-pills" role="group" aria-label="Filter by category">
-  <a href="/" class="category-pills__pill category-pills__pill--active" data-filter="all">All</a>
+  <a href="{{ site.Home.RelPermalink }}" class="category-pills__pill category-pills__pill--active" data-filter="all">All</a>
   {{- range $cat := slice "Blog Post" "Tutorial" "Perspective" -}}
     {{- $slug := . | urlize -}}
     {{- $label := cond (eq . "Blog Post") "Blogs" (cond (eq . "Tutorial") "Tutorials" "Perspectives") -}}
