@@ -136,8 +136,9 @@ Writer of the post. Author pages at `/authors/<slug>/` (affiliation, ORCID, webs
 
 Determines which homepage pill filter a post appears under.
 
-Supported values: **Blog Post**, **Tutorial**, **Perspective**.
+Supported values: **Announcement**, **Blog Post**, **Tutorial**, **Perspective**.
 
+- `Announcement` — editorial and community announcements (appears under the **Announcements** pill)
 - `Blog Post` — standard research write-ups (appears under the **Blogs** pill)
 - `Tutorial` — step-by-step technical guides (appears under the **Tutorials** pill)
 - `Perspective` — opinion pieces, field commentary (appears under the **Perspectives** pill)

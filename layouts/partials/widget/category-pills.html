@@ -1,9 +1,10 @@
 <div class="category-pills" role="group" aria-label="Filter by category">
   <a href="{{ site.Home.RelPermalink }}" class="category-pills__pill category-pills__pill--active" data-filter="all">All</a>
-  {{- range $cat := slice "Blog Post" "Tutorial" "Perspective" -}}
+  {{- range $cat := slice "Announcement" "Blog Post" "Tutorial" "Perspective" -}}
     {{- $slug := . | urlize -}}
     {{- $label := "Perspectives" -}}
-    {{- if eq . "Blog Post" }}{{ $label = "Blogs" }}
+    {{- if eq . "Announcement" }}{{ $label = "Announcements" }}
+    {{- else if eq . "Blog Post" }}{{ $label = "Blogs" }}
     {{- else if eq . "Tutorial" }}{{ $label = "Tutorials" }}
     {{- end -}}
     {{- $termPage := site.GetPage (printf "/categories/%s" $slug) -}}

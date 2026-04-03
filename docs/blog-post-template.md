@@ -28,7 +28,8 @@ editor: "Editor Name"
 #Add any number of tags which are searchable on the blog homepage. See [there]() to get some inspiration
 tags: ["genomics", "causal-inference"]
 # Category determines which homepage pill filter the post appears under.
-# Supported values: "Blog Post", "Tutorial", "Perspective"
+# Supported values: "Announcement", "Blog Post", "Tutorial", "Perspective"
+#   - "Announcement" → appears under the Announcements pill (editorial/community announcements)
 #   - "Blog Post"    → appears under the Blogs pill (default for most posts)
 #   - "Tutorial"     → appears under the Tutorials pill (step-by-step technical guides)
 #   - "Perspective"  → appears under the Perspectives pill (opinion pieces, commentary)
