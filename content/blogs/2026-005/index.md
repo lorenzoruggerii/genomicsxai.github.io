@@ -60,6 +60,10 @@ Key takeaways:
 
 This post is a community reference: if you want to run AlphaGenome and are trying to figure out what fits on the GPU you have and how long it will take, this is where we share the numbers. We profile both the official JAX path (`alphagenome-jax`) and the community PyTorch port (`alphagenome-pytorch`, running in bf16) across seven NVIDIA GPUs under three workloads: inference, heads-only finetuning, and full-weights finetuning, each on real genomic data.
 
+For background, see two companion posts: [Fine-tuning AlphaGenome in native JAX/Haiku](https://genomicsxai.github.io/blogs/2026-003/) (the `alphagenome-ft` community package) and [Porting AlphaGenome to PyTorch](https://genomicsxai.github.io/blogs/2026-004/) (the PyTorch port benchmarked here). DeepMind released the weights and JAX research code ([`alphagenome_research`](https://github.com/google-deepmind/alphagenome_research)); the PyTorch port, `alphagenome-ft`, and this benchmarking effort are all community work. Our JAX finetuning runs are built on `alphagenome_research` directly, not through `alphagenome-ft` — `alphagenome-ft` wraps the same research code and should land on similar performance, but it is a separate package and not what these numbers measure.
+
+> **Side note — what is "latency"?** Throughout this post, *latency* means the wall-clock time for a single compiled model step on the GPU (one forward pass for inference, one forward + backward + optimizer step for finetuning). All latency numbers are reported in milliseconds (`ms`). *Peak memory* is the maximum GPU memory the step ever held, reported in gigabytes (`GB`).
+
 ## Motivation
 
 Researchers adapting AlphaGenome to their own tasks face a concrete planning question: "my lab has GPU X, what sequence lengths can I run, how long will each iteration take, and how much memory do I need to budget?" That question is hard to answer without running the model yourself, and the GPU landscape in academic clusters is diverse. Not every group has access to H200s or even A100s.
@@ -70,9 +74,9 @@ We ran controlled, reproducible benchmarks across the GPU tiers most commonly fo
 
 ### Models
 
-* `alphagenome-jax`: the official DeepMind JAX/Haiku implementation, compiled with `@jax.jit`
-* `alphagenome-pytorch`: the community PyTorch port from the Kundaje Lab, compiled with `torch.compile` and bf16 autocast
-* [Borzoi](https://github.com/calico/borzoi) is also benchmarked at its supported sequence lengths (`256 kb` and `512 kb`) in the same published bundle as a reference point; see [Also published: Borzoi](#also-published-borzoi)
+* `alphagenome-jax`: the official DeepMind JAX/Haiku implementation, compiled with `@jax.jit`. Finetuning uses code adapted from DeepMind's [`alphagenome_research`](https://github.com/google-deepmind/alphagenome_research) research-code release (the same backbone `alphagenome-ft` is built on), wrapped in a minimal custom training loop for these benchmarks
+* `alphagenome-pytorch`: the community [PyTorch port](https://github.com/kundajelab/alphagenome-pytorch) from the Kundaje Lab, compiled with `torch.compile` and bf16 autocast; finetuning runs are a straightforward training loop built directly on that implementation
+* [Borzoi](https://github.com/calico/borzoi) is also benchmarked at its supported sequence lengths (`262 kb` and `524 kb`) using [`borzoi-pytorch`](https://github.com/johahi/borzoi-pytorch) (pretrained weights `johahi/borzoi-replicate-0`) — a third-party community PyTorch reimplementation by Johannes Hingerl (Gagneur lab, TU Munich) — **not** the original Calico TensorFlow release, so that the Borzoi and AlphaGenome-PyTorch numbers share the same framework stack; see [Also published: Borzoi](#also-published-borzoi)
 
 ### GPUs
 
@@ -125,6 +129,8 @@ At `1 Mb`, inference latency spans roughly an order of magnitude across the test
 | A40 48 GB | alphagenome-pytorch | 179.7 | 339.9 | 704.0 | 1493.4 |
 | RTX 6000 24 GB | alphagenome-pytorch | 1153.3 | 2298.6 | 4742.9 | — |
 
+*Values are median latency in **milliseconds (`ms`)**; lower is better. Em-dash (—) marks configurations that ran out of memory.*
+
 The RTX 6000 is a special case: JAX bf16 is not supported on Turing (`compute capability 7.5`), so only the PyTorch path runs there. It is also the only tested card that cannot reach `1 Mb` inference.
 
 ### Peak GPU memory
@@ -146,6 +152,8 @@ Inference memory is dominated by activations and scales close to linearly with s
 | A40 48 GB | alphagenome-jax | 7.4 | 10.4 | 18.9 | 35.8 |
 | A40 48 GB | alphagenome-pytorch | 6.6 | 11.4 | 21.2 | 40.7 |
 | RTX 6000 24 GB | alphagenome-pytorch | 4.8 | 7.3 | 12.5 | — |
+
+*Values are peak GPU memory in **gigabytes (`GB`)**; lower is better. Em-dash (—) marks configurations that ran out of memory.*
 
 Peak memory at a given sequence length is nearly identical across GPUs for the same implementation, which means the memory column of this table is a reasonable estimate for untested GPUs too.
 
@@ -177,6 +185,8 @@ Heads-only iterations are a little cheaper than a full inference pass: the backb
 | A40 48 GB | alphagenome-pytorch | 133.1 | 253.2 | 512.0 | 1167.9 |
 | RTX 6000 24 GB | alphagenome-pytorch | 1138.4 | 2317.3 | 4789.5 | — |
 
+*Values are median per-step latency in **milliseconds (`ms`)**, measured as a single forward + backward + optimizer step on the prediction head; lower is better.*
+
 ### Peak GPU memory
 
 Heads-only is by far the lightest finetuning mode. `1 Mb` peaks at about `14-27 GB` depending on implementation and GPU, so every card we tested, down to the `24 GB` RTX 6000 at `524 kb`, has headroom for this workload.
@@ -196,6 +206,8 @@ Heads-only is by far the lightest finetuning mode. `1 Mb` peaks at about `14-27 
 | A40 48 GB | alphagenome-jax | 4.9 | 7.1 | 11.8 | 20.8 |
 | A40 48 GB | alphagenome-pytorch | 3.1 | 4.8 | 8.0 | 14.5 |
 | RTX 6000 24 GB | alphagenome-pytorch | 4.1 | 6.7 | 11.8 | — |
+
+*Values are peak GPU memory in **gigabytes (`GB`)** during a heads-only training step.*
 
 ## Full-Weights Finetuning
 
@@ -220,6 +232,8 @@ Full-weights iterations are the most expensive workload. The missing entries in 
 | A40 48 GB | alphagenome-jax | 404.4 | 793.8 | — | — |
 | A40 48 GB | alphagenome-pytorch | 467.6 | 853.2 | — | — |
 
+*Values are median per-step latency in **milliseconds (`ms`)** for a full forward + backward + optimizer step over all 450M parameters. Em-dash (—) marks `(GPU, implementation)` pairs that ran out of memory.*
+
 The practical feasibility picture is simple: `48 GB` GPUs top out at `262 kb` for full-weights finetuning, `80 GB` cards reach `524 kb`, and `1 Mb` requires either `H200` or an `H100` using the JAX path.
 
 ### Peak GPU memory
@@ -240,6 +254,8 @@ Full-weights peak memory roughly doubles with each doubling of sequence length a
 | L40 48 GB | alphagenome-pytorch | 13.0 | 21.5 | — | — |
 | A40 48 GB | alphagenome-jax | 13.1 | 18.9 | — | — |
 | A40 48 GB | alphagenome-pytorch | 13.0 | 21.5 | — | — |
+
+*Values are peak GPU memory in **gigabytes (`GB`)** during a full-weights training step. Em-dash (—) marks `(GPU, implementation)` pairs that ran out of memory.*
 
 In short, full-weights finetuning of AlphaGenome at `1 Mb` is a Hopper-class workload today, and even there the `80 GB` tier is on the margin.
 
@@ -264,7 +280,80 @@ A few practical notes:
 
 ### Also published: Borzoi
 
-The same benchmark harness also profiles [Borzoi](https://github.com/calico/borzoi) at its supported `256 kb` and `524 kb` contexts. Borzoi inference, heads-only finetune, and full-weights finetune numbers across the same GPUs are included in the published CSVs and figures for readers who want a second reference model at those sequence lengths.
+The same benchmark harness also profiles [Borzoi](https://github.com/calico/borzoi) (via the third-party [`borzoi-pytorch`](https://github.com/johahi/borzoi-pytorch) community port by Johannes Hingerl) at its supported `262 kb` and `524 kb` contexts. Borzoi is a useful reference because it is a much smaller model (~135M parameters vs AlphaGenome's 450M), so it helps calibrate how much of the AlphaGenome latency is "foundation-model size" rather than anything implementation-specific.
+
+The figure below compares `borzoi-pytorch` inference against both AlphaGenome implementations across the seven GPU classes at Borzoi's two supported sequence lengths. RTX 6000 is omitted from the plot because AG-JAX does not run on Turing and the AG-PyTorch fp32-fallback latency (~2-5 s) would compress every other bar into illegibility; its Borzoi/AG-PyTorch numbers remain in the tables below.
+
+![Borzoi vs AlphaGenome inference comparison](borzoi_vs_alphagenome.png "width=1000 Grouped-bar comparison of Borzoi, AlphaGenome JAX, and AlphaGenome PyTorch bf16 on inference latency and peak GPU memory at 262 kb and 524 kb across H200, H100, A100, L40S, L40, and A40. Borzoi bars are consistently the shortest in both latency and memory panels.")
+
+The tables below give the same numbers in detail, using the same GPU + Framework row layout as the earlier inference tables.
+
+#### Inference latency
+
+| GPU | Framework | 262 kb | 524 kb |
+| --- | --- | ---: | ---: |
+| H200 141 GB | borzoi-pytorch | 16.0 | 33.6 |
+| H200 141 GB | alphagenome-jax | 46.1 | 91.2 |
+| H200 141 GB | alphagenome-pytorch | 62.1 | 126.1 |
+| H100 80 GB | borzoi-pytorch | 17.9 | 38.6 |
+| H100 80 GB | alphagenome-jax | 51.0 | 99.0 |
+| H100 80 GB | alphagenome-pytorch | 68.4 | 136.9 |
+| A100 80 GB | borzoi-pytorch | 36.7 | 79.2 |
+| A100 80 GB | alphagenome-jax | 152.8 | 297.3 |
+| A100 80 GB | alphagenome-pytorch | 168.0 | 336.9 |
+| L40S 48 GB | borzoi-pytorch | 36.1 | 90.0 |
+| L40S 48 GB | alphagenome-jax | 169.7 | 369.3 |
+| L40S 48 GB | alphagenome-pytorch | 209.9 | 432.7 |
+| L40 48 GB | borzoi-pytorch | 41.5 | 99.4 |
+| L40 48 GB | alphagenome-jax | 212.5 | 453.2 |
+| L40 48 GB | alphagenome-pytorch | 258.9 | 531.6 |
+| A40 48 GB | borzoi-pytorch | 64.1 | 144.2 |
+| A40 48 GB | alphagenome-jax | 298.7 | 601.7 |
+| A40 48 GB | alphagenome-pytorch | 339.9 | 704.0 |
+| RTX 6000 24 GB | borzoi-pytorch | 87.8 | — |
+| RTX 6000 24 GB | alphagenome-jax | — | — |
+| RTX 6000 24 GB | alphagenome-pytorch | 2298.6 | 4742.9 |
+
+*Values are median latency in **milliseconds (`ms`)**; lower is better. Em-dash (—) marks configurations that did not run: AG-JAX bf16 is unsupported on Turing, and `524 kb` Borzoi on RTX 6000 was not collected.*
+
+#### Inference peak memory
+
+| GPU | Framework | 262 kb | 524 kb |
+| --- | --- | ---: | ---: |
+| H200 141 GB | borzoi-pytorch | 1.9 | 3.0 |
+| H200 141 GB | alphagenome-jax | 10.4 | 18.2 |
+| H200 141 GB | alphagenome-pytorch | 11.5 | 21.2 |
+| H100 80 GB | borzoi-pytorch | 1.9 | 3.0 |
+| H100 80 GB | alphagenome-jax | 10.4 | 18.2 |
+| H100 80 GB | alphagenome-pytorch | 11.5 | 21.2 |
+| A100 80 GB | borzoi-pytorch | 1.9 | 3.0 |
+| A100 80 GB | alphagenome-jax | 10.4 | 18.9 |
+| A100 80 GB | alphagenome-pytorch | 11.4 | 21.2 |
+| L40S 48 GB | borzoi-pytorch | 1.9 | 3.0 |
+| L40S 48 GB | alphagenome-jax | 11.5 | 18.9 |
+| L40S 48 GB | alphagenome-pytorch | 11.4 | 21.2 |
+| L40 48 GB | borzoi-pytorch | 1.9 | 3.0 |
+| L40 48 GB | alphagenome-jax | 11.5 | 18.9 |
+| L40 48 GB | alphagenome-pytorch | 11.4 | 21.2 |
+| A40 48 GB | borzoi-pytorch | 1.9 | 3.0 |
+| A40 48 GB | alphagenome-jax | 10.4 | 18.9 |
+| A40 48 GB | alphagenome-pytorch | 11.4 | 21.2 |
+| RTX 6000 24 GB | borzoi-pytorch | 1.9 | — |
+| RTX 6000 24 GB | alphagenome-jax | — | — |
+| RTX 6000 24 GB | alphagenome-pytorch | 7.3 | 12.5 |
+
+*Values are peak GPU memory in **gigabytes (`GB`)**; lower is better.*
+
+Borzoi inference runs roughly `3-5×` faster than AlphaGenome at the same sequence length and fits in a small fraction of the memory, which is expected given the ~3× parameter-count gap (Borzoi ~135M vs AlphaGenome 450M) and the different architectural choices. The gap widens on older GPUs (`4-5×` on Ampere/Ada) and narrows on Hopper (`2.6-2.9×`), suggesting AlphaGenome benefits more from the newer hardware's memory bandwidth and tensor-core throughput than Borzoi does. Full Borzoi inference, heads-only finetune, and full-weights finetune numbers are available in the [published CSVs](https://github.com/XinmingTu/genomic-model-profiling/tree/main/published/data) for readers who want a second reference model at these sequence lengths.
+
+## Limitations
+
+A few caveats worth flagging explicitly:
+
+* **No TPU results.** The JAX path is designed to run on TPUs and would likely see further speed and memory improvements there; we benchmark NVIDIA GPUs only because that is what the academic labs in our network actually have. If you do have TPU access, the numbers here should be read as a lower bound on what JAX can deliver
+* **`batch_size=1` only.** We did not sweep batch sizes larger than one. On `H100` and `H200`, there is likely headroom for `batch_size>1` at shorter contexts; sweeping batch size on Hopper-class hardware is on our follow-up list
+* **Single workload per mode.** We report one inference workload and one finetune workload (matched-ATAC, `GM12878`); results may vary with other datasets or multi-track heads
+* **Borzoi is the PyTorch port**, not the original TF release; numbers from the TF implementation on the same GPUs may differ
 
 ## Resources
 
