@@ -4,21 +4,45 @@ on:
   pull_request_target:
     types: [closed]
 
+concurrency:
+  group: pr-preview-${{ github.event.number }}
+  cancel-in-progress: false
+
 jobs:
   cleanup:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
+      pull-requests: read
 
     steps:
+      - name: Detect available write tokens
+        id: token_flags
+        env:
+          GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
+          GH_PR_COMMENT_TOKEN: ${{ secrets.GH_PR_COMMENT_TOKEN }}
+        shell: bash
+        run: |
+          if [ -n "$GH_PAGES_TOKEN" ]; then
+            echo "has_pages_token=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_pages_token=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -n "$GH_PR_COMMENT_TOKEN" ]; then
+            echo "has_pr_comment_token=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_pr_comment_token=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout gh-pages branch
+        if: steps.token_flags.outputs.has_pages_token == 'true'
         uses: actions/checkout@v4
         with:
           ref: gh-pages
-          token: ${{ secrets.GH_PAGES_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAGES_TOKEN }}
 
       - name: Delete preview directory
+        if: steps.token_flags.outputs.has_pages_token == 'true'
         run: |
           PR_DIR="previews/pr-${{ github.event.number }}"
           if [ -d "$PR_DIR" ]; then
@@ -33,10 +57,19 @@ jobs:
           fi
 
       - name: Update PR comment
+        if: steps.token_flags.outputs.has_pr_comment_token == 'true'
         uses: marocchino/sticky-pull-request-comment@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PR_COMMENT_TOKEN }}
         with:
           header: preview-deployment
           message: |
             ## Preview Deployment Removed
 
             The preview for this PR has been deleted now that it is closed.
+
+      - name: Validate cleanup token availability
+        if: steps.token_flags.outputs.has_pages_token != 'true'
+        run: |
+          echo "GH_PAGES_TOKEN is required to remove PR previews from gh-pages."
+          exit 1

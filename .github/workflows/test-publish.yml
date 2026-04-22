@@ -38,6 +38,10 @@ on:
         default: "https://sandbox.zenodo.org/api"
         type: string
 
+concurrency:
+  group: test-publish-${{ github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   test-publish:
     runs-on: ubuntu-latest
