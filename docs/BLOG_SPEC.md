@@ -178,7 +178,15 @@ Writer of the post. Author pages at `/authors/<slug>/` (affiliation, ORCID, webs
 - Deploy to GitHub Pages (via `github-pages` environment).  
 - Optional: create release tag.
 
-**Implementation:** GitHub Actions (e.g. `pr-build`, `frontmatter`, `links`, `deploy`).
+**Implementation:** GitHub Actions (e.g. `pr-build`, `frontmatter`, `links`, `deploy`, `test-publish`).
+
+### 8.3 Manual test-publish workflow
+
+- `test-publish` is a manual `workflow_dispatch` workflow for exercising the `main` publish pipeline on a branch.
+- It mirrors production steps closely: discussion sync/export, editor fetch, changed-post detection, optional Zenodo sync, Hugo build, and optional deployment.
+- Preview output is deployed under `https://genomicsxai.github.io/previews/manual/<slug>/` so it does not overwrite the live site.
+- Zenodo sync defaults to dry-run. For end-to-end testing, point `zenodo_api_base` at `https://sandbox.zenodo.org/api`.
+- The editor fetch logic is shared by `deploy.yml` and `test-publish.yml` via `.github/scripts/fetch-editors.sh` so test and production stay consistent.
 
 ---
 

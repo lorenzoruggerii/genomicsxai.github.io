@@ -1,0 +1,225 @@
+name: Test Publish Pipeline
+
+on:
+  push:
+    branches:
+      - issue-24-add-doi
+    paths:
+      - 'content/blogs/**'
+      - 'data/zenodo.json'
+      - 'layouts/**'
+      - 'config.toml'
+      - 'config/**'
+      - '.github/scripts/**'
+      - '.github/workflows/test-publish.yml'
+  workflow_dispatch:
+    inputs:
+      blog_post_paths:
+        description: "Optional space-separated list of content/blogs/*/index.md paths to treat as changed"
+        required: false
+        type: string
+      preview_slug:
+        description: "Optional preview path suffix under /previews/manual/"
+        required: false
+        type: string
+      deploy_preview:
+        description: "Deploy the built site to gh-pages under a preview path"
+        required: false
+        default: true
+        type: boolean
+      zenodo_dry_run:
+        description: "If true, log intended Zenodo actions without creating records"
+        required: false
+        default: true
+        type: boolean
+      zenodo_api_base:
+        description: "Zenodo API base URL. Use sandbox.zenodo.org/api for safe end-to-end tests."
+        required: false
+        default: "https://sandbox.zenodo.org/api"
+        type: string
+
+jobs:
+  test-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          token: ${{ secrets.GH_CONTENTS_WRITE_TOKEN || github.token }}
+          submodules: true
+          fetch-depth: 0
+
+      - uses: peaceiris/actions-hugo@v3
+        with:
+          extended: true
+
+      - name: Resolve preview path
+        id: preview
+        shell: bash
+        run: |
+          RAW="${{ github.event.inputs.preview_slug }}"
+          if [ -z "$RAW" ]; then
+            RAW="${{ github.ref_name }}"
+          fi
+          SAFE=$(printf '%s' "$RAW" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._-]+/-/g; s/^-+//; s/-+$//')
+          if [ -z "$SAFE" ]; then
+            SAFE="run-${{ github.run_id }}"
+          fi
+          DEST="previews/manual/${SAFE}"
+          URL="https://genomicsxai.github.io/${DEST}/"
+          echo "destination_dir=${DEST}" >> "$GITHUB_OUTPUT"
+          echo "preview_url=${URL}" >> "$GITHUB_OUTPUT"
+          echo "Using preview path ${DEST}"
+
+      - name: Ensure blog discussions
+        env:
+          GH_TOKEN: ${{ secrets.GH_DISCUSSIONS_TOKEN }}
+        run: |
+          chmod +x .github/scripts/ensure-blog-discussions.sh
+          ./.github/scripts/ensure-blog-discussions.sh
+
+      - name: Export blog discussion URLs
+        env:
+          GH_TOKEN: ${{ secrets.GH_DISCUSSIONS_TOKEN || github.token }}
+        run: |
+          chmod +x .github/scripts/export-blog-discussion-urls.sh
+          ./.github/scripts/export-blog-discussion-urls.sh
+
+      - name: Fetch editors from GitHub team
+        env:
+          GH_TOKEN: ${{ secrets.GH_EDITORS_TOKEN }}
+          ORG: genomicsxai
+          TEAM: editors
+        run: |
+          chmod +x .github/scripts/fetch-editors.sh
+          ./.github/scripts/fetch-editors.sh
+
+      - name: Detect changed blog posts
+        id: changed_blogs
+        shell: bash
+        run: |
+          INPUT="${{ github.event.inputs.blog_post_paths }}"
+          if [ -n "$INPUT" ]; then
+            read -r -a files <<< "$INPUT"
+          else
+            git fetch origin main --depth=1
+            BASE=$(git merge-base HEAD origin/main)
+            mapfile -t files < <(git diff --name-only "$BASE" HEAD -- 'content/blogs/*/index.md' | sort)
+          fi
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            echo "No changed blog posts detected."
+            exit 0
+          fi
+          printf '%s\n' "${files[@]}" > /tmp/changed-blog-posts.txt
+          echo "count=${#files[@]}" >> "$GITHUB_OUTPUT"
+          echo "Changed blog posts:"
+          cat /tmp/changed-blog-posts.txt
+
+      - name: Validate selected blog posts for Zenodo testing
+        if: steps.changed_blogs.outputs.count != '0' && github.event.inputs.blog_post_paths != ''
+        shell: bash
+        run: |
+          while IFS= read -r path; do
+            if [ ! -f "$path" ]; then
+              echo "Selected blog post does not exist: $path"
+              exit 1
+            fi
+            status=$(ruby -e 'require "yaml"; raw = File.read(ARGV[0]); match = raw.match(/\A---\s*\n(.*?)\n---\s*\n/m) or abort("Missing frontmatter in #{ARGV[0]}"); fm = YAML.safe_load(match[1], permitted_classes: [Date, Time], aliases: true) || {}; print fm["status"].to_s' "$path")
+            if [ "$status" != "accepted" ]; then
+              echo "Selected blog post is not accepted: $path (status: ${status:-<empty>})"
+              echo "Zenodo testing expects posts with frontmatter status: accepted"
+              exit 1
+            fi
+          done < /tmp/changed-blog-posts.txt
+
+      - name: Sync Zenodo DOI metadata
+        if: steps.changed_blogs.outputs.count != '0'
+        env:
+          ZENODO_API_TOKEN: ${{ secrets.ZENODO_API_TOKEN }}
+          ZENODO_COMMUNITY: ${{ secrets.ZENODO_COMMUNITY }}
+          ZENODO_API_BASE: ${{ github.event.inputs.zenodo_api_base }}
+          SITE_URL: ${{ steps.preview.outputs.preview_url }}
+          DRY_RUN: ${{ github.event.inputs.zenodo_dry_run == 'true' && '1' || '0' }}
+        run: |
+          if [ -z "$ZENODO_API_TOKEN" ]; then
+            if [ "$DRY_RUN" = "1" ]; then
+              echo "ZENODO_API_TOKEN is not configured; dry-run will skip live API calls."
+              exit 0
+            fi
+            echo "ZENODO_API_TOKEN is not configured."
+            exit 1
+          fi
+          chmod +x .github/scripts/sync-zenodo-dois.rb
+          ruby .github/scripts/sync-zenodo-dois.rb $(tr '\n' ' ' < /tmp/changed-blog-posts.txt)
+
+      - name: Commit Zenodo metadata
+        if: steps.changed_blogs.outputs.count != '0' && github.event.inputs.zenodo_dry_run != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_CONTENTS_WRITE_TOKEN }}
+        run: |
+          if git diff --quiet -- data/zenodo.json; then
+            echo "No Zenodo metadata changes to commit."
+            exit 0
+          fi
+          if [ -z "$GH_TOKEN" ]; then
+            echo "GH_CONTENTS_WRITE_TOKEN is not configured; skipping commit of data/zenodo.json."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git add data/zenodo.json
+          git commit -m "chore: sync Zenodo DOI metadata"
+          git push origin HEAD:${{ github.ref_name }}
+
+      - name: Build
+        run: |
+          hugo --minify \
+               --environment preview \
+               --baseURL "${{ steps.preview.outputs.preview_url }}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-publish-public
+          path: public
+
+      - name: Upload Zenodo metadata artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zenodo-metadata
+          path: data/zenodo.json
+
+      - name: Deploy preview to gh-pages
+        if: github.event.inputs.deploy_preview == 'true' && secrets.GH_PAGES_TOKEN != ''
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GH_PAGES_TOKEN }}
+          publish_dir: ./public
+          publish_branch: gh-pages
+          destination_dir: ${{ steps.preview.outputs.destination_dir }}
+          keep_files: true
+
+      - name: Report missing gh-pages token
+        if: github.event.inputs.deploy_preview == 'true' && secrets.GH_PAGES_TOKEN == ''
+        run: |
+          echo "GH_PAGES_TOKEN is not configured; skipping preview deploy."
+
+      - name: Summarize run
+        shell: bash
+        run: |
+          {
+            echo "## Test publish summary"
+            echo ""
+            echo "- Preview URL: ${{ steps.preview.outputs.preview_url }}"
+            echo "- Deploy preview: ${{ github.event.inputs.deploy_preview }}"
+            echo "- Zenodo dry run: ${{ github.event.inputs.zenodo_dry_run }}"
+            echo "- Zenodo API base: ${{ github.event.inputs.zenodo_api_base }}"
+            echo "- Changed blog count: ${{ steps.changed_blogs.outputs.count || '0' }}"
+            echo "- Explicit blog selection: ${{ github.event.inputs.blog_post_paths != '' && 'yes' || 'no' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
