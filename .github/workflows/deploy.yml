@@ -32,6 +32,7 @@ jobs:
         id: token_flags
         env:
           GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
+          GH_DISCUSSIONS_TOKEN: ${{ secrets.GH_DISCUSSIONS_TOKEN }}
         shell: bash
         run: |
           if [ -n "$GH_PAGES_TOKEN" ]; then
@@ -39,9 +40,15 @@ jobs:
           else
             echo "has_pages_token=false" >> "$GITHUB_OUTPUT"
           fi
+          if [ -n "$GH_DISCUSSIONS_TOKEN" ]; then
+            echo "has_discussions_token=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_discussions_token=false" >> "$GITHUB_OUTPUT"
+          fi
 
       # 2.4. Ensure a GitHub Discussion exists for each blog post (for Giscus likes/comments)
       - name: Ensure blog discussions
+        if: steps.token_flags.outputs.has_discussions_token == 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_DISCUSSIONS_TOKEN }}
         run: |
@@ -50,8 +57,9 @@ jobs:
 
       # 2.4b. Export discussion URLs so "Discuss this post" and like/comment link to the right thread
       - name: Export blog discussion URLs
+        if: steps.token_flags.outputs.has_discussions_token == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GH_DISCUSSIONS_TOKEN || github.token }}
+          GH_TOKEN: ${{ secrets.GH_DISCUSSIONS_TOKEN }}
         run: |
           chmod +x .github/scripts/export-blog-discussion-urls.sh
           ./.github/scripts/export-blog-discussion-urls.sh
@@ -76,12 +84,47 @@ jobs:
           mapfile -t files < <(git diff --name-only "$BEFORE" "$AFTER" -- 'content/blogs/*/index.md' | sort)
           if [ "${#files[@]}" -eq 0 ]; then
             echo "count=0" >> "$GITHUB_OUTPUT"
+            echo "accepted_count=0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           printf '%s\n' "${files[@]}" > /tmp/changed-blog-posts.txt
+          accepted_count=0
+          while IFS= read -r path; do
+            status=$(ruby -e 'require "yaml"; raw = File.read(ARGV[0]); match = raw.match(/\A---\s*\n(.*?)\n---\s*\n/m) or abort("Missing frontmatter in #{ARGV[0]}"); fm = YAML.safe_load(match[1], permitted_classes: [Date, Time], aliases: true) || {}; print fm["status"].to_s' "$path")
+            if [ "$status" = "accepted" ]; then
+              accepted_count=$((accepted_count + 1))
+            fi
+          done < /tmp/changed-blog-posts.txt
           echo "count=${#files[@]}" >> "$GITHUB_OUTPUT"
+          echo "accepted_count=${accepted_count}" >> "$GITHUB_OUTPUT"
           echo "Changed blog posts:"
           cat /tmp/changed-blog-posts.txt
+
+      - name: Validate required publish secrets
+        env:
+          GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
+          GH_DISCUSSIONS_TOKEN: ${{ secrets.GH_DISCUSSIONS_TOKEN }}
+          GH_CONTENTS_WRITE_TOKEN: ${{ secrets.GH_CONTENTS_WRITE_TOKEN }}
+          ZENODO_API_TOKEN: ${{ secrets.ZENODO_API_TOKEN }}
+        run: |
+          if [ -z "$GH_PAGES_TOKEN" ]; then
+            echo "GH_PAGES_TOKEN is required for production deploys."
+            exit 1
+          fi
+          if [ -z "$GH_DISCUSSIONS_TOKEN" ]; then
+            echo "GH_DISCUSSIONS_TOKEN is required for production discussion sync."
+            exit 1
+          fi
+          if [ "${{ steps.changed_blogs.outputs.accepted_count }}" != "0" ]; then
+            if [ -z "$ZENODO_API_TOKEN" ]; then
+              echo "ZENODO_API_TOKEN is required when accepted blog posts changed in this deploy."
+              exit 1
+            fi
+            if [ -z "$GH_CONTENTS_WRITE_TOKEN" ]; then
+              echo "GH_CONTENTS_WRITE_TOKEN is required to commit updated data/zenodo.json."
+              exit 1
+            fi
+          fi
 
       - name: Sync Zenodo DOI metadata
         if: steps.changed_blogs.outputs.count != '0'
@@ -90,10 +133,6 @@ jobs:
           ZENODO_COMMUNITY: ${{ secrets.ZENODO_COMMUNITY }}
           SITE_URL: https://genomicsxai.github.io
         run: |
-          if [ -z "$ZENODO_API_TOKEN" ]; then
-            echo "ZENODO_API_TOKEN is not configured; skipping Zenodo DOI sync."
-            exit 0
-          fi
           chmod +x .github/scripts/sync-zenodo-dois.rb
           ruby .github/scripts/sync-zenodo-dois.rb $(tr '\n' ' ' < /tmp/changed-blog-posts.txt)
 
@@ -104,10 +143,6 @@ jobs:
         run: |
           if git diff --quiet -- data/zenodo.json; then
             echo "No Zenodo metadata changes to commit."
-            exit 0
-          fi
-          if [ -z "$GH_TOKEN" ]; then
-            echo "GH_CONTENTS_WRITE_TOKEN is not configured; skipping commit of data/zenodo.json."
             exit 0
           fi
           git config user.name "github-actions[bot]"
@@ -135,7 +170,6 @@ jobs:
 
       # 4. Deploy to GitHub Pages
       - name: Deploy
-        if: steps.token_flags.outputs.has_pages_token == 'true'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GH_PAGES_TOKEN }}
@@ -143,8 +177,3 @@ jobs:
           publish_branch: gh-pages
           # keep_files: true preserves the previews/ subdirectory across deploys
           keep_files: true
-
-      - name: Report missing gh-pages token
-        if: steps.token_flags.outputs.has_pages_token != 'true'
-        run: |
-          echo "GH_PAGES_TOKEN is not configured; skipping gh-pages deploy."

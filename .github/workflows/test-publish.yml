@@ -78,6 +78,7 @@ jobs:
         id: token_flags
         env:
           GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
+          GH_DISCUSSIONS_TOKEN: ${{ secrets.GH_DISCUSSIONS_TOKEN }}
         shell: bash
         run: |
           if [ -n "$GH_PAGES_TOKEN" ]; then
@@ -85,8 +86,14 @@ jobs:
           else
             echo "has_pages_token=false" >> "$GITHUB_OUTPUT"
           fi
+          if [ -n "$GH_DISCUSSIONS_TOKEN" ]; then
+            echo "has_discussions_token=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_discussions_token=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Ensure blog discussions
+        if: steps.token_flags.outputs.has_discussions_token == 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_DISCUSSIONS_TOKEN }}
         run: |
@@ -94,8 +101,9 @@ jobs:
           ./.github/scripts/ensure-blog-discussions.sh
 
       - name: Export blog discussion URLs
+        if: steps.token_flags.outputs.has_discussions_token == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GH_DISCUSSIONS_TOKEN || github.token }}
+          GH_TOKEN: ${{ secrets.GH_DISCUSSIONS_TOKEN }}
         run: |
           chmod +x .github/scripts/export-blog-discussion-urls.sh
           ./.github/scripts/export-blog-discussion-urls.sh
@@ -129,11 +137,20 @@ jobs:
           fi
           if [ "${#files[@]}" -eq 0 ]; then
             echo "count=0" >> "$GITHUB_OUTPUT"
+            echo "accepted_count=0" >> "$GITHUB_OUTPUT"
             echo "No changed blog posts detected."
             exit 0
           fi
           printf '%s\n' "${files[@]}" > /tmp/changed-blog-posts.txt
+          accepted_count=0
+          while IFS= read -r path; do
+            status=$(ruby -e 'require "yaml"; raw = File.read(ARGV[0]); match = raw.match(/\A---\s*\n(.*?)\n---\s*\n/m) or abort("Missing frontmatter in #{ARGV[0]}"); fm = YAML.safe_load(match[1], permitted_classes: [Date, Time], aliases: true) || {}; print fm["status"].to_s' "$path")
+            if [ "$status" = "accepted" ]; then
+              accepted_count=$((accepted_count + 1))
+            fi
+          done < /tmp/changed-blog-posts.txt
           echo "count=${#files[@]}" >> "$GITHUB_OUTPUT"
+          echo "accepted_count=${accepted_count}" >> "$GITHUB_OUTPUT"
           echo "Changed blog posts:"
           cat /tmp/changed-blog-posts.txt
 
@@ -154,6 +171,32 @@ jobs:
             fi
           done < /tmp/changed-blog-posts.txt
 
+      - name: Validate required test-publish secrets
+        env:
+          GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
+          GH_DISCUSSIONS_TOKEN: ${{ secrets.GH_DISCUSSIONS_TOKEN }}
+          GH_CONTENTS_WRITE_TOKEN: ${{ secrets.GH_CONTENTS_WRITE_TOKEN }}
+          ZENODO_API_TOKEN: ${{ secrets.ZENODO_API_TOKEN }}
+        run: |
+          if [ "${{ github.event.inputs.deploy_preview || 'true' }}" = "true" ] && [ -z "$GH_PAGES_TOKEN" ]; then
+            echo "GH_PAGES_TOKEN is required when deploy_preview=true."
+            exit 1
+          fi
+          if [ -z "$GH_DISCUSSIONS_TOKEN" ]; then
+            echo "GH_DISCUSSIONS_TOKEN is required for discussion sync in test-publish."
+            exit 1
+          fi
+          if [ "${{ github.event.inputs.zenodo_dry_run || 'true' }}" != "true" ] && [ "${{ steps.changed_blogs.outputs.accepted_count }}" != "0" ]; then
+            if [ -z "$ZENODO_API_TOKEN" ]; then
+              echo "ZENODO_API_TOKEN is required for non-dry-run Zenodo sync."
+              exit 1
+            fi
+            if [ -z "$GH_CONTENTS_WRITE_TOKEN" ]; then
+              echo "GH_CONTENTS_WRITE_TOKEN is required to commit updated data/zenodo.json."
+              exit 1
+            fi
+          fi
+
       - name: Sync Zenodo DOI metadata
         if: steps.changed_blogs.outputs.count != '0'
         env:
@@ -164,10 +207,6 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.zenodo_dry_run == 'true' && '1' || '0' }}
         run: |
           if [ -z "$ZENODO_API_TOKEN" ]; then
-            if [ "$DRY_RUN" = "1" ]; then
-              echo "ZENODO_API_TOKEN is not configured; dry-run will skip live API calls."
-              exit 0
-            fi
             echo "ZENODO_API_TOKEN is not configured."
             exit 1
           fi
@@ -181,10 +220,6 @@ jobs:
         run: |
           if git diff --quiet -- data/zenodo.json; then
             echo "No Zenodo metadata changes to commit."
-            exit 0
-          fi
-          if [ -z "$GH_TOKEN" ]; then
-            echo "GH_CONTENTS_WRITE_TOKEN is not configured; skipping commit of data/zenodo.json."
             exit 0
           fi
           git config user.name "github-actions[bot]"
@@ -214,7 +249,7 @@ jobs:
           path: data/zenodo.json
 
       - name: Deploy preview to gh-pages
-        if: github.event.inputs.deploy_preview == 'true' && steps.token_flags.outputs.has_pages_token == 'true'
+        if: github.event.inputs.deploy_preview == 'true'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GH_PAGES_TOKEN }}
@@ -222,11 +257,6 @@ jobs:
           publish_branch: gh-pages
           destination_dir: ${{ steps.preview.outputs.destination_dir }}
           keep_files: true
-
-      - name: Report missing gh-pages token
-        if: github.event.inputs.deploy_preview == 'true' && steps.token_flags.outputs.has_pages_token != 'true'
-        run: |
-          echo "GH_PAGES_TOKEN is not configured; skipping preview deploy."
 
       - name: Summarize run
         shell: bash
