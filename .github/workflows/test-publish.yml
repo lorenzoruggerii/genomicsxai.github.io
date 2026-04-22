@@ -92,6 +92,18 @@ jobs:
             echo "has_discussions_token=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Resolve preview behavior
+        id: preview_flags
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "should_deploy_preview=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.inputs.deploy_preview }}" = "true" ]; then
+            echo "should_deploy_preview=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_deploy_preview=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Ensure blog discussions
         if: steps.token_flags.outputs.has_discussions_token == 'true'
         env:
@@ -107,6 +119,13 @@ jobs:
         run: |
           chmod +x .github/scripts/export-blog-discussion-urls.sh
           ./.github/scripts/export-blog-discussion-urls.sh
+
+      - name: Stub discussion data for preview
+        if: steps.token_flags.outputs.has_discussions_token != 'true'
+        run: |
+          mkdir -p data
+          echo '{}' > data/discussions.json
+          echo "GH_DISCUSSIONS_TOKEN is not configured; using empty discussions data for preview."
 
       - name: Fetch editors from GitHub team
         env:
@@ -174,16 +193,11 @@ jobs:
       - name: Validate required test-publish secrets
         env:
           GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
-          GH_DISCUSSIONS_TOKEN: ${{ secrets.GH_DISCUSSIONS_TOKEN }}
           GH_CONTENTS_WRITE_TOKEN: ${{ secrets.GH_CONTENTS_WRITE_TOKEN }}
           ZENODO_API_TOKEN: ${{ secrets.ZENODO_API_TOKEN }}
         run: |
-          if [ "${{ github.event.inputs.deploy_preview || 'true' }}" = "true" ] && [ -z "$GH_PAGES_TOKEN" ]; then
+          if [ "${{ steps.preview_flags.outputs.should_deploy_preview }}" = "true" ] && [ -z "$GH_PAGES_TOKEN" ]; then
             echo "GH_PAGES_TOKEN is required when deploy_preview=true."
-            exit 1
-          fi
-          if [ -z "$GH_DISCUSSIONS_TOKEN" ]; then
-            echo "GH_DISCUSSIONS_TOKEN is required for discussion sync in test-publish."
             exit 1
           fi
           if [ "${{ github.event.inputs.zenodo_dry_run || 'true' }}" != "true" ] && [ "${{ steps.changed_blogs.outputs.accepted_count }}" != "0" ]; then
@@ -206,6 +220,10 @@ jobs:
           SITE_URL: ${{ steps.preview.outputs.preview_url }}
           DRY_RUN: ${{ github.event.inputs.zenodo_dry_run == 'true' && '1' || '0' }}
         run: |
+          if [ "$DRY_RUN" = "1" ] && [ -z "$ZENODO_API_TOKEN" ]; then
+            echo "ZENODO_API_TOKEN is not configured; skipping live Zenodo sync because dry-run is enabled."
+            exit 0
+          fi
           if [ -z "$ZENODO_API_TOKEN" ]; then
             echo "ZENODO_API_TOKEN is not configured."
             exit 1
@@ -249,7 +267,7 @@ jobs:
           path: data/zenodo.json
 
       - name: Deploy preview to gh-pages
-        if: github.event.inputs.deploy_preview == 'true'
+        if: steps.preview_flags.outputs.should_deploy_preview == 'true'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GH_PAGES_TOKEN }}
@@ -265,7 +283,7 @@ jobs:
             echo "## Test publish summary"
             echo ""
             echo "- Preview URL: ${{ steps.preview.outputs.preview_url }}"
-            echo "- Deploy preview: ${{ github.event.inputs.deploy_preview }}"
+            echo "- Deploy preview: ${{ steps.preview_flags.outputs.should_deploy_preview }}"
             echo "- Zenodo dry run: ${{ github.event.inputs.zenodo_dry_run }}"
             echo "- Zenodo API base: ${{ github.event.inputs.zenodo_api_base }}"
             echo "- Changed blog count: ${{ steps.changed_blogs.outputs.count || '0' }}"
