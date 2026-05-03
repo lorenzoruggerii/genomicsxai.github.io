@@ -264,10 +264,25 @@
         var thumb = document.createElement('div');
         thumb.className = 'submit-form__image-thumb';
         var url = URL.createObjectURL(f);
-        thumb.innerHTML =
-          '<img src="' + url + '" alt="' + f.name + '">' +
-          '<span class="submit-form__image-name">' + f.name + ' (' + (f.size / 1024).toFixed(0) + ' KB)</span>' +
-          '<button type="button" class="submit-form__image-remove" data-index="' + i + '" title="Remove">&times;</button>';
+
+        var img = document.createElement('img');
+        img.src = url;
+        img.alt = f.name;
+
+        var span = document.createElement('span');
+        span.className = 'submit-form__image-name';
+        span.textContent = f.name + ' (' + (f.size / 1024).toFixed(0) + ' KB)';
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'submit-form__image-remove';
+        btn.dataset.index = String(i);
+        btn.title = 'Remove';
+        btn.innerHTML = '&times;';
+
+        thumb.appendChild(img);
+        thumb.appendChild(span);
+        thumb.appendChild(btn);
         container.appendChild(thumb);
       });
       $$('.submit-form__image-remove').forEach(function (btn) {
