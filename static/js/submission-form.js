@@ -8,7 +8,11 @@
     DEFAULT_BRANCH: 'main',
     BLOGS_PATH: 'content/blogs',
     API_BASE: 'https://api.github.com',
-    AUTH_BASE: 'https://genomicsxai-auth.vercel.app',
+    // GitHub App's public Client ID. Safe to embed in client-side code —
+    // it's not a secret. (The matching client_secret is what's confidential,
+    // and Device Flow doesn't need one.)
+    // Find this on the App's settings page: https://github.com/organizations/genomicsxai/settings/apps
+    GITHUB_CLIENT_ID: 'Iv23REPLACE_ME_WITH_YOUR_APP_CLIENT_ID',
     SCOPE_OPTIONS: ['protocols', 'tutorials', 'negative-results', 'discussions', 'insights', 'ideas'],
     AUDIENCE_OPTIONS: ['within-field', 'general', 'intro-to-field'],
     MAX_IMAGE_SIZE: 10 * 1024 * 1024, // 10 MB
@@ -26,9 +30,16 @@
   // Device Flow lets a public client authenticate without a Client Secret.
   // The browser asks GitHub for a device code + user code, displays the user
   // code, and polls until the user authorizes the device on github.com.
-  // Tradeoff: clunkier UX than a redirect flow, but no OAuth callback URL,
-  // no client secret to keep, no cross-site cookie problem.
+  //
+  // We call GitHub's OAuth endpoints DIRECTLY from the browser. GitHub's
+  // /login/device/code and /login/oauth/access_token used to be CORS-blocked,
+  // but as of recent updates they accept browser requests. If you ever see a
+  // CORS error in the console here, GitHub's policy has flipped back and
+  // you'll need a one-page CORS proxy (see CORS_PROXY notes in the README).
   var Auth = {
+    GITHUB_DEVICE_CODE_URL: 'https://github.com/login/device/code',
+    GITHUB_TOKEN_URL: 'https://github.com/login/oauth/access_token',
+
     getToken: function () { return sessionStorage.getItem('gh_token'); },
     setToken: function (t) { sessionStorage.setItem('gh_token', t); },
     clearToken: function () { sessionStorage.removeItem('gh_token'); },
@@ -39,9 +50,14 @@
     _pollTimer: null,
 
     startDeviceFlow: async function () {
-      var resp = await fetch(CONFIG.AUTH_BASE + '/api/oauth/device-code', {
+      var resp = await fetch(this.GITHUB_DEVICE_CODE_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        // GitHub Apps don't use OAuth scopes; permissions are declared on the App.
+        body: new URLSearchParams({ client_id: CONFIG.GITHUB_CLIENT_ID }),
       });
       if (!resp.ok) {
         var err = {};
@@ -68,10 +84,17 @@
             return reject(new Error('Code expired. Please try again.'));
           }
 
-          fetch(CONFIG.AUTH_BASE + '/api/oauth/poll', {
+          fetch(self.GITHUB_TOKEN_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ device_code: deviceCode }),
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+              client_id: CONFIG.GITHUB_CLIENT_ID,
+              device_code: deviceCode,
+              grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+            }),
           })
             .then(function (r) { return r.json(); })
             .then(function (data) {
