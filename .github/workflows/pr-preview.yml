@@ -8,6 +8,10 @@ on:
     types: [opened, synchronize, reopened]
     paths:
       - 'content/blogs/**'
+      - 'layouts/**'
+      - 'static/**'
+      - 'docs/**'
+      - '.gitignore'
 
 jobs:
   deploy-preview:
@@ -17,24 +21,35 @@ jobs:
       pull-requests: write
 
     steps:
-      # Safety check: only proceed if the PR exclusively touches content/blogs/.
-      # This guards against PRs that also modify layouts, scripts, or config,
-      # which could (in theory) affect the build environment.
-      - name: Check PR only modifies blog content
+      # Safety check: only proceed if the PR exclusively touches known-safe paths.
+      # Allowed: content/blogs/, layouts/, static/, docs/, .gitignore
+      # Blocked: .github/workflows/, .github/scripts/, config.toml, and anything else.
+      # Note: pull_request_target always runs the base repo's workflow, so workflow
+      # files in the PR cannot hijack this job. We still block them as a belt-and-
+      # suspenders measure, and we block config.toml and scripts that are executed
+      # directly by CI to keep the attack surface minimal.
+      - name: Check PR only modifies safe paths
         id: safety
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           FILES=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.number }}/files" \
             --jq '.[].filename')
-          # Strip empty lines before checking so trailing newlines don't cause false positives
-          NON_CONTENT=$(echo "$FILES" | grep -v '^content/blogs/' | grep -v '^[[:space:]]*$' || true)
-          if [ -n "$NON_CONTENT" ]; then
+
+          # Known-safe path prefixes / exact files
+          UNSAFE=$(echo "$FILES" | grep -v '^[[:space:]]*$' \
+            | grep -v '^content/blogs/' \
+            | grep -v '^layouts/' \
+            | grep -v '^static/' \
+            | grep -v '^docs/' \
+            | grep -v '^\.gitignore$' \
+            || true)
+
+          if [ -n "$UNSAFE" ]; then
             echo "safe=false" >> "$GITHUB_OUTPUT"
-            echo "PR modifies files outside content/blogs/: $NON_CONTENT"
-            # Pass the file list to the comment step
+            echo "PR modifies files outside safe paths: $UNSAFE"
             echo "offending_files<<EOF" >> "$GITHUB_OUTPUT"
-            echo "$NON_CONTENT" >> "$GITHUB_OUTPUT"
+            echo "$UNSAFE" >> "$GITHUB_OUTPUT"
             echo "EOF" >> "$GITHUB_OUTPUT"
           else
             echo "safe=true" >> "$GITHUB_OUTPUT"
@@ -48,14 +63,20 @@ jobs:
           message: |
             ## Preview Deployment Skipped
 
-            This PR modifies files outside `content/blogs/` — preview deployment is only available for PRs that exclusively add or edit blog post content.
+            This PR modifies files outside the allowed safe paths. Preview deployment is only available for PRs that exclusively touch:
 
-            **Files detected outside `content/blogs/`:**
+            - `content/blogs/` — blog post content
+            - `layouts/` — Hugo templates
+            - `static/` — static assets
+            - `docs/` — documentation
+            - `.gitignore`
+
+            **Files detected outside safe paths:**
             ```
             ${{ steps.safety.outputs.offending_files }}
             ```
 
-            Please remove these files from your PR branch (or ensure all your changes are within `content/blogs/YYYY-NNN/`) and push a new commit to trigger the preview again.
+            If your PR needs to modify `config.toml`, `.github/workflows/`, or other infra files, it must be reviewed and merged directly without a preview deployment.
 
       # Safe to check out the PR head — we only run Hugo on markdown content.
       - name: Checkout PR head
