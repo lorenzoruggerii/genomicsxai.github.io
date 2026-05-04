@@ -17,6 +17,19 @@
         Sign in with GitHub
       </button>
     </div>
+    <div id="submit-form__auth-pending" class="submit-form__device-flow" hidden>
+      <p class="submit-form__device-intro">To finish signing in, open GitHub and enter the code below.</p>
+      <ol class="submit-form__device-steps">
+        <li>Open <a id="submit-form__device-link" href="https://github.com/login/device" target="_blank" rel="noopener">https://github.com/login/device</a> in a new tab.</li>
+        <li>Enter this code (we copied it to your clipboard):</li>
+      </ol>
+      <div class="submit-form__device-code">
+        <code id="submit-form__device-code-display" class="submit-form__device-code-value">…</code>
+        <button type="button" id="submit-form__device-code-copy" class="submit-form__btn submit-form__btn--secondary submit-form__btn--small">Copy</button>
+      </div>
+      <p class="submit-form__device-status" id="submit-form__device-status">Waiting for you to authorize on GitHub…</p>
+      <button type="button" id="submit-form__device-cancel" class="submit-form__btn submit-form__btn--link">Cancel</button>
+    </div>
     <div id="submit-form__auth-user" hidden>
       <span>Signed in as <strong id="submit-form__username"></strong></span>
       <button type="button" id="submit-form__logout-btn" class="submit-form__btn submit-form__btn--link">Sign out</button>

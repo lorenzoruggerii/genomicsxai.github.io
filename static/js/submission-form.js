@@ -22,14 +22,96 @@
   function hide(el) { el.style.display = 'none'; el.setAttribute('hidden', ''); }
   function today() { return new Date().toISOString().slice(0, 10); }
 
-  // ── Auth ──
+  // ── Auth (GitHub Device Flow) ──
+  // Device Flow lets a public client authenticate without a Client Secret.
+  // The browser asks GitHub for a device code + user code, displays the user
+  // code, and polls until the user authorizes the device on github.com.
+  // Tradeoff: clunkier UX than a redirect flow, but no OAuth callback URL,
+  // no client secret to keep, no cross-site cookie problem.
   var Auth = {
     getToken: function () { return sessionStorage.getItem('gh_token'); },
+    setToken: function (t) { sessionStorage.setItem('gh_token', t); },
     clearToken: function () { sessionStorage.removeItem('gh_token'); },
     isAuthenticated: function () { return !!this.getToken(); },
-    login: function () {
-      window.location.href = CONFIG.AUTH_BASE + '/api/auth/login';
+
+    // Device-flow runtime state
+    _polling: false,
+    _pollTimer: null,
+
+    startDeviceFlow: async function () {
+      var resp = await fetch(CONFIG.AUTH_BASE + '/api/oauth/device-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!resp.ok) {
+        var err = {};
+        try { err = await resp.json(); } catch (_) {}
+        throw new Error(err.error_description || err.error || ('HTTP ' + resp.status));
+      }
+      var data = await resp.json();
+      if (data.error) throw new Error(data.error_description || data.error);
+      // { device_code, user_code, verification_uri, expires_in, interval }
+      return data;
     },
+
+    pollForAuth: function (deviceCode, intervalSec, expiresInSec) {
+      var self = this;
+      var startTime = Date.now();
+      var interval = Math.max(1, intervalSec || 5);
+      self._polling = true;
+
+      return new Promise(function (resolve, reject) {
+        function tick() {
+          if (!self._polling) return reject(new Error('cancelled'));
+          if (Date.now() - startTime > (expiresInSec || 900) * 1000) {
+            self._polling = false;
+            return reject(new Error('Code expired. Please try again.'));
+          }
+
+          fetch(CONFIG.AUTH_BASE + '/api/oauth/poll', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_code: deviceCode }),
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              if (data.access_token) {
+                self.setToken(data.access_token);
+                self._polling = false;
+                return resolve(data.access_token);
+              }
+              if (data.error === 'authorization_pending') {
+                self._pollTimer = setTimeout(tick, interval * 1000);
+                return;
+              }
+              if (data.error === 'slow_down') {
+                interval = (data.interval || interval) + 5;
+                self._pollTimer = setTimeout(tick, interval * 1000);
+                return;
+              }
+              // expired_token, access_denied, unsupported_grant_type, etc.
+              self._polling = false;
+              reject(new Error(data.error_description || data.error || 'Authorization failed'));
+            })
+            .catch(function (e) {
+              self._polling = false;
+              reject(e);
+            });
+        }
+
+        // First poll happens after the initial interval (per the spec).
+        self._pollTimer = setTimeout(tick, interval * 1000);
+      });
+    },
+
+    cancelPoll: function () {
+      this._polling = false;
+      if (this._pollTimer) {
+        clearTimeout(this._pollTimer);
+        this._pollTimer = null;
+      }
+    },
+
     logout: function () {
       this.clearToken();
       FormController.user = null;
@@ -460,7 +542,13 @@
 
       // Auth
       var loginBtn = $('#submit-form__login-btn');
-      if (loginBtn) loginBtn.addEventListener('click', function () { Auth.login(); });
+      if (loginBtn) loginBtn.addEventListener('click', function () { self.onLoginClick(); });
+
+      var cancelBtn = $('#submit-form__device-cancel');
+      if (cancelBtn) cancelBtn.addEventListener('click', function () { self.onCancelLogin(); });
+
+      var copyBtn = $('#submit-form__device-code-copy');
+      if (copyBtn) copyBtn.addEventListener('click', function () { self.onCopyDeviceCode(); });
 
       var logoutBtn = $('#submit-form__logout-btn');
       if (logoutBtn) logoutBtn.addEventListener('click', function () { Auth.logout(); });
@@ -514,17 +602,84 @@
     renderAuthState: function () {
       var loginSection = $('#submit-form__auth-login');
       var userSection = $('#submit-form__auth-user');
+      var pendingSection = $('#submit-form__auth-pending');
       var formBody = $('#submit-form__body');
 
       if (Auth.isAuthenticated() && this.user) {
         hide(loginSection);
+        if (pendingSection) hide(pendingSection);
         show(userSection);
         $('#submit-form__username').textContent = '@' + this.user.login;
         show(formBody);
       } else {
         show(loginSection);
+        if (pendingSection) hide(pendingSection);
         hide(userSection);
         hide(formBody);
+      }
+    },
+
+    onLoginClick: async function () {
+      var loginSection = $('#submit-form__auth-login');
+      var pendingSection = $('#submit-form__auth-pending');
+      var statusEl = $('#submit-form__device-status');
+      var codeDisplay = $('#submit-form__device-code-display');
+      var deviceLink = $('#submit-form__device-link');
+
+      hide(loginSection);
+      show(pendingSection);
+      if (codeDisplay) codeDisplay.textContent = '';
+      if (statusEl) statusEl.textContent = 'Requesting device code from GitHub…';
+
+      try {
+        var device = await Auth.startDeviceFlow();
+        if (codeDisplay) codeDisplay.textContent = device.user_code || '';
+        if (deviceLink && device.verification_uri) {
+          deviceLink.href = device.verification_uri;
+          deviceLink.textContent = device.verification_uri;
+        }
+        if (statusEl) statusEl.textContent = 'Waiting for you to authorize on GitHub…';
+
+        // Try to copy the code to clipboard automatically. Best-effort.
+        if (device.user_code && navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(device.user_code).catch(function () {});
+        }
+
+        await Auth.pollForAuth(device.device_code, device.interval, device.expires_in);
+        // Token was set by Auth.pollForAuth on success.
+        hide(pendingSection);
+        await this.checkSession();
+      } catch (e) {
+        hide(pendingSection);
+        show(loginSection);
+        if (e && e.message !== 'cancelled') {
+          this.showFormError('Sign-in failed: ' + e.message);
+        }
+      }
+    },
+
+    onCancelLogin: function () {
+      Auth.cancelPoll();
+      hide($('#submit-form__auth-pending'));
+      show($('#submit-form__auth-login'));
+    },
+
+    onCopyDeviceCode: function () {
+      var codeEl = $('#submit-form__device-code-display');
+      var btn = $('#submit-form__device-code-copy');
+      if (!codeEl || !btn) return;
+      var code = codeEl.textContent;
+      if (!code) return;
+      var setLabel = function (text) {
+        var orig = btn.dataset.origText || btn.textContent;
+        btn.dataset.origText = orig;
+        btn.textContent = text;
+        setTimeout(function () { btn.textContent = orig; }, 1500);
+      };
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(code).then(function () { setLabel('Copied!'); }, function () { setLabel('Press Cmd+C'); });
+      } else {
+        setLabel('Press Cmd+C');
       }
     },
 

@@ -1,24 +1,23 @@
-// Shared auth helpers for Vercel serverless functions.
-import crypto from 'node:crypto';
+// Shared auth helpers for the Device Flow proxy endpoints.
+// Device Flow does not need OAuth state validation (no redirect_uri to forge)
+// or a Client Secret (the client_id is the only credential, and it's public).
+// All these endpoints do is bridge browser → github.com to work around CORS.
 
-export function parseCookies(header) {
-  const out = {};
-  if (!header) return out;
-  header.split(/;\s*/).forEach((pair) => {
-    const i = pair.indexOf('=');
-    if (i > 0) out[pair.slice(0, i)] = pair.slice(i + 1);
-  });
-  return out;
+export const ALLOWED_ORIGINS = [
+  'https://genomicsxai.github.io',
+  'http://localhost:1313',
+];
+
+export function setCorsHeaders(req, res) {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Vary', 'Origin');
+  }
 }
 
-export function timingSafeEqualStr(a, b) {
-  if (typeof a !== 'string' || typeof b !== 'string') return false;
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  if (ab.length !== bb.length) return false;
-  return crypto.timingSafeEqual(ab, bb);
-}
-
-export function clearStateCookieHeader() {
-  return 'oauth_state=; HttpOnly; Secure; SameSite=Lax; Path=/api/auth; Max-Age=0';
+export function originAllowed(req) {
+  return ALLOWED_ORIGINS.includes(req.headers.origin);
 }
