@@ -1,9 +1,7 @@
-// Vercel serverless function: exchange GitHub OAuth code for access token,
-// then store the token in an HttpOnly cookie scoped to the API origin.
+// Vercel serverless function: exchange GitHub OAuth code for access token.
 import {
   parseCookies,
   timingSafeEqualStr,
-  setSessionCookie,
   clearStateCookieHeader,
 } from '../_lib/auth.js';
 
@@ -48,15 +46,23 @@ export default async function handler(req, res) {
       });
     }
 
-    // Store token in an HttpOnly cookie scoped to /api on the auth origin.
-    // Cross-origin XHR from the form sends this cookie when credentials: 'include' is set.
-    res.setHeader('Set-Cookie', [
-      `gh_session=${data.access_token}; HttpOnly; Secure; SameSite=None; Path=/api; Max-Age=28800`,
-      clearStateCookie,
-    ]);
-
     const siteUrl = process.env.SITE_URL || 'https://genomicsxai.github.io';
-    res.redirect(`${siteUrl}/submission-guidelines/#submit-form`);
+    res.setHeader('Set-Cookie', clearStateCookie);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'");
+    // Embed token + redirect target via JSON.stringify so they can't break out
+    // of the script tag even if the token format ever changes.
+    const tokenJs = JSON.stringify(data.access_token);
+    const redirectJs = JSON.stringify(`${siteUrl}/submission-guidelines/#submit-form`);
+    res.send(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Authenticating...</title></head>
+<body>
+<p>Signing in... you will be redirected shortly.</p>
+<script>
+  sessionStorage.setItem('gh_token', ${tokenJs});
+  window.location.href = ${redirectJs};
+</script>
+</body></html>`);
   } catch (err) {
     res.setHeader('Set-Cookie', clearStateCookie);
     res.status(500).json({ error: 'Failed to exchange code for token' });

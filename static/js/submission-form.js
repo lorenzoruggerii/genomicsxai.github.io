@@ -7,15 +7,12 @@
     REPO: 'genomicsxai.github.io',
     DEFAULT_BRANCH: 'main',
     BLOGS_PATH: 'content/blogs',
+    API_BASE: 'https://api.github.com',
     AUTH_BASE: 'https://genomicsxai-auth.vercel.app',
-    // GitHub API is now proxied through Vercel so the auth token can stay
-    // in an HttpOnly cookie. Path is preserved (e.g. /repos/owner/repo/...).
-    API_BASE: 'https://genomicsxai-auth.vercel.app/api/github',
     SCOPE_OPTIONS: ['protocols', 'tutorials', 'negative-results', 'discussions', 'insights', 'ideas'],
     AUDIENCE_OPTIONS: ['within-field', 'general', 'intro-to-field'],
-    // Per-image cap kept under Vercel's 4.5MB request body limit (base64 of 3MB ≈ 4MB).
-    MAX_IMAGE_SIZE: 3 * 1024 * 1024,   // 3 MB
-    MAX_TOTAL_SIZE: 50 * 1024 * 1024,  // 50 MB across all images
+    MAX_IMAGE_SIZE: 10 * 1024 * 1024, // 10 MB
+    MAX_TOTAL_SIZE: 50 * 1024 * 1024,  // 50 MB
   };
 
   // ── Utility ──
@@ -26,21 +23,15 @@
   function today() { return new Date().toISOString().slice(0, 10); }
 
   // ── Auth ──
-  // The session token now lives in an HttpOnly cookie set by /api/auth/callback.
-  // The browser never sees it; auth state is checked by hitting /api/github/user.
   var Auth = {
+    getToken: function () { return sessionStorage.getItem('gh_token'); },
+    clearToken: function () { sessionStorage.removeItem('gh_token'); },
+    isAuthenticated: function () { return !!this.getToken(); },
     login: function () {
       window.location.href = CONFIG.AUTH_BASE + '/api/auth/login';
     },
-    logout: async function () {
-      try {
-        await fetch(CONFIG.AUTH_BASE + '/api/auth/logout', {
-          method: 'POST',
-          credentials: 'include',
-        });
-      } catch (e) {
-        // Even if the network call fails, force the UI to logged-out state.
-      }
+    logout: function () {
+      this.clearToken();
       FormController.user = null;
       FormController.renderAuthState();
     },
@@ -48,12 +39,15 @@
 
   // ── GitHub API ──
   var GitHubAPI = {
-    request: async function (method, url, body) {
-      var opts = {
-        method: method,
-        credentials: 'include',
-        headers: { Accept: 'application/vnd.github.v3+json' },
+    _headers: function () {
+      return {
+        Authorization: 'token ' + Auth.getToken(),
+        Accept: 'application/vnd.github.v3+json',
       };
+    },
+
+    request: async function (method, url, body) {
+      var opts = { method: method, headers: this._headers() };
       if (body) {
         opts.headers['Content-Type'] = 'application/json';
         opts.body = JSON.stringify(body);
@@ -62,11 +56,12 @@
       if (resp.status === 204) return null;
       var data = await resp.json();
       if (!resp.ok) {
-        var msg = data.message || data.error || resp.statusText;
+        var msg = data.message || resp.statusText;
         if (resp.status === 401) {
-          msg = 'Authentication expired. Please sign in again.';
+          Auth.clearToken();
           FormController.user = null;
           FormController.renderAuthState();
+          msg = 'Authentication expired. Please sign in again.';
         }
         if (resp.status === 403 && resp.headers.get('X-RateLimit-Remaining') === '0') {
           msg = 'GitHub API rate limit reached. Please wait a few minutes and try again.';
@@ -440,11 +435,13 @@
       var form = $('#submit-form');
       if (!form) return;
 
+      // If we have a token from a prior OAuth round-trip, validate it.
+      if (Auth.isAuthenticated()) {
+        this.checkSession();
+      }
+
       this.bindEvents();
       this.renderAuthState();
-      // Always probe the session on load. If the cookie is valid we move to
-      // signed-in UI; if not, we silently stay on the login screen.
-      this.checkSession();
     },
 
     checkSession: async function () {
@@ -452,7 +449,7 @@
         this.user = await GitHubAPI.getUser();
         this.renderAuthState();
       } catch (e) {
-        // 401 / no session = logged out. Don't surface an error on initial load.
+        // 401 / token invalid → clearToken/null already done in request()
         this.user = null;
         this.renderAuthState();
       }
@@ -519,7 +516,7 @@
       var userSection = $('#submit-form__auth-user');
       var formBody = $('#submit-form__body');
 
-      if (this.user) {
+      if (Auth.isAuthenticated() && this.user) {
         hide(loginSection);
         show(userSection);
         $('#submit-form__username').textContent = '@' + this.user.login;
