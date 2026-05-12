@@ -27,7 +27,7 @@ jobs:
         run: |
           DAYS_BACK="${{ github.event.inputs.days_back || 7 }}"
           python3 - <<'PYEOF'
-          import os, json, re, sys
+          import os, json, re, sys, subprocess
           from datetime import datetime, timedelta, timezone
 
           days_back = int(os.environ.get("DAYS_BACK", 7))
@@ -40,6 +40,25 @@ jobs:
               if not os.path.exists(path):
                   continue
 
+              # Get the initial commit date of the post (when it was first added)
+              try:
+                  result = subprocess.run(
+                      ["git", "log", "--follow", "--pretty=format:%ci", "--", path],
+                      capture_output=True, text=True, check=True
+                  )
+                  commit_dates = result.stdout.strip().split('\n')
+                  if not commit_dates or not commit_dates[-1]:
+                      continue
+                  # Use the oldest commit date (initial add)
+                  initial_commit_date_str = commit_dates[-1]
+                  post_date = datetime.strptime(initial_commit_date_str, "%Y-%m-%d %H:%M:%S %z")
+                  post_date = post_date.astimezone(timezone.utc)
+              except (subprocess.CalledProcessError, ValueError, IndexError):
+                  continue
+
+              if post_date < cutoff:
+                  continue
+
               with open(path, "r", encoding="utf-8") as f:
                   content = f.read()
 
@@ -48,19 +67,6 @@ jobs:
               if not fm_match:
                   continue
               fm = fm_match.group(1)
-
-              # Date
-              date_match = re.search(r"^date:\s*(.+)$", fm, re.MULTILINE)
-              if not date_match:
-                  continue
-              date_str = date_match.group(1).strip().strip('"').strip("'").split()[0]
-              try:
-                  post_date = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-              except ValueError:
-                  continue
-
-              if post_date < cutoff:
-                  continue
 
               # Title
               title_match = re.search(r"^title:\s*(.+)$", fm, re.MULTILINE)
@@ -94,10 +100,25 @@ jobs:
               else:
                   summary = ""
 
+              # Date from frontmatter for display
+              date_match = re.search(r"^date:\s*(.+)$", fm, re.MULTILINE)
+              date_str = date_match.group(1).strip().strip('"').strip("'").split()[0] if date_match else initial_commit_date_str[:10]
+
               posts.append({
                   "title": title,
                   "authors": authors,
                   "url": f"https://genomicsxai.github.io/blogs/{slug}/",
+                  "summary": summary,
+                  "date": date_str,
+              })
+
+          # Write results for the next step
+          with open("/tmp/new_posts.json", "w") as f:
+              json.dump(posts, f)
+
+          print(f"Found {len(posts)} new post(s)")
+          sys.exit(0)
+          PYEOF
                   "summary": summary,
                   "date": date_str,
               })
