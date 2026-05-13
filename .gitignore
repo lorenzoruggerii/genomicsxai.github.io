@@ -20,6 +20,9 @@ resources/_gen/
 # Temporary working files
 temp/
 
+# Superpowers / brainstorming work products (specs, plans, scratch)
+docs/superpowers/
+
 # Node.js (test dependencies, not part of Hugo site)
 node_modules/
 package.json

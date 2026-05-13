@@ -3,8 +3,8 @@
 
     {{ partial "widget/category-pills.html" . }}
 
-    <section class="article-list">
-        {{ range $index, $element := $pages }}
+    <section class="article-grid">
+        {{ range $pages }}
             {{ partial "article-list/default" . }}
         {{ end }}
     </section>

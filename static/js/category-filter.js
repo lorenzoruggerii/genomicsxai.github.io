@@ -2,7 +2,7 @@
   var pills = document.querySelectorAll('.category-pills__pill');
   if (!pills.length) return;
 
-  var articles = document.querySelectorAll('.article-list article[data-categories]');
+  var articles = document.querySelectorAll('.article-grid article[data-categories]');
   var emptyState = document.querySelector('.category-pills__empty-state');
 
   // Progressive enhancement: convert links/spans to buttons, preserving hrefs

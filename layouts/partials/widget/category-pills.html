@@ -1,5 +1,18 @@
-<div class="category-pills" role="group" aria-label="Filter by category">
-  <a href="{{ site.Home.RelPermalink }}" class="category-pills__pill category-pills__pill--active" data-filter="all">All</a>
+{{- /* Active pill is decided by the current page:
+     - Homepage → "All"
+     - /categories/<slug>/ → that category's pill
+     - any other archive (tags, labs, authors, …) → no pill active */ -}}
+{{- $current := "" -}}
+{{- if .IsHome -}}
+  {{- $current = "all" -}}
+{{- else if and (eq .Kind "term") (eq .Type "categories") -}}
+  {{- $current = .Data.Term | urlize -}}
+{{- end -}}
+
+<div class="category-pills" data-filter-group="category" role="group" aria-label="Filter by category">
+  <a href="{{ site.Home.RelPermalink }}"
+     class="category-pills__pill{{ if eq $current "all" }} category-pills__pill--active{{ end }}"
+     data-filter="all">All</a>
   {{- range $cat := slice "Announcement" "Blog Post" "Tutorial" "Perspective" -}}
     {{- $slug := . | urlize -}}
     {{- $label := "Perspectives" -}}
@@ -7,11 +20,14 @@
     {{- else if eq . "Blog Post" }}{{ $label = "Blogs" }}
     {{- else if eq . "Tutorial" }}{{ $label = "Tutorials" }}
     {{- end -}}
+    {{- $isActive := eq $current $slug -}}
     {{- $termPage := site.GetPage (printf "/categories/%s" $slug) -}}
     {{- if $termPage }}
-  <a href="{{ $termPage.Permalink }}" class="category-pills__pill" data-filter="{{ $slug }}">{{ $label }}</a>
+  <a href="{{ $termPage.Permalink }}"
+     class="category-pills__pill{{ if $isActive }} category-pills__pill--active{{ end }}"
+     data-filter="{{ $slug }}">{{ $label }}</a>
     {{- else }}
-  <span class="category-pills__pill" data-filter="{{ $slug }}">{{ $label }}</span>
+  <span class="category-pills__pill category-pills__pill--empty" data-filter="{{ $slug }}">{{ $label }}</span>
     {{- end -}}
   {{- end }}
 </div>

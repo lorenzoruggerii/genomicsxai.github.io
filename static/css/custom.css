@@ -1119,6 +1119,123 @@ span.category-pills__pill {
   opacity: 0.6;
 }
 /* Override theme's display:flex on article cards so hidden attribute works */
-.article-list article[hidden] {
+.article-list article[hidden],
+.article-grid article[hidden] {
   display: none !important;
+}
+
+/* Compact grid */
+.article-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 32px 24px;
+}
+@media (min-width: 600px) {
+  .article-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1100px) {
+  .article-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.article-card {
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+}
+.article-card__link {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+  height: 100%;
+}
+.article-card__media {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--card-border-radius, 10px);
+  background: var(--card-background-selected, #eaeaea);
+}
+.article-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.25s ease;
+}
+.article-card:hover .article-card__image {
+  transform: scale(1.02);
+}
+.article-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 4px;
+}
+.article-card__title {
+  font-size: 1.7rem;
+  line-height: 1.3;
+  margin: 0;
+  font-weight: 600;
+  color: var(--card-text-color-main);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.article-card:hover .article-card__title {
+  color: var(--accent-color);
+}
+.article-card__category {
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent-color);
+  margin-bottom: 2px;
+}
+.article-card__meta {
+  font-size: 1.25rem;
+  color: var(--card-text-color-tertiary, #888);
+  font-variant-numeric: tabular-nums;
+  margin-top: auto;
+}
+.article-card__meta-sep {
+  margin: 0 0.4em;
+}
+
+/* Gradient placeholder when a post has no featured image */
+.article-card__fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg,
+    hsl(var(--fb-h1, 220), 55%, 55%),
+    hsl(var(--fb-h2, 260), 55%, 42%));
+  padding: 16px;
+}
+.article-card__fallback-title {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1.4rem;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* Focus states for keyboard nav */
+.article-card__link:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 4px;
+  border-radius: 4px;
 }

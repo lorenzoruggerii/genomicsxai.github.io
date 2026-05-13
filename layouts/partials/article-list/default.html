@@ -3,6 +3,39 @@
 {{- range .GetTerms "categories" -}}
   {{- $cats = $cats | append (.Title | urlize) -}}
 {{- end -}}
-<article class="{{ if $image }}has-image{{ end }}" data-categories="{{ delimit $cats " " }}">
-    {{ partial "article/components/header" . }}
+{{- $tagSlugs := slice -}}
+{{- range .Params.tags -}}
+  {{- $tagSlugs = $tagSlugs | append (. | urlize) -}}
+{{- end -}}
+<article class="article-card{{ if $image }} has-image{{ end }}" data-categories="{{ delimit $cats " " }}" data-tags="{{ delimit $tagSlugs " " }}">
+  <a class="article-card__link" href="{{ .RelPermalink }}">
+    <div class="article-card__media">
+      {{ if $image }}
+      <img class="article-card__image" src="{{ $image.Permalink }}"
+           {{ with $image.Width }}width="{{ . }}"{{ end }}
+           {{ with $image.Height }}height="{{ . }}"{{ end }}
+           loading="lazy"
+           alt="Featured image of {{ .Title }}">
+      {{ else }}
+        {{ partial "widget/image-fallback.html" . }}
+      {{ end }}
+    </div>
+    <div class="article-card__body">
+      {{- with .GetTerms "categories" -}}
+        {{- with index . 0 -}}
+          <span class="article-card__category">{{ .LinkTitle }}</span>
+        {{- end -}}
+      {{- end }}
+      <h3 class="article-card__title">{{ .Title }}</h3>
+      <div class="article-card__meta">
+        {{ if not .Date.IsZero }}
+        <time datetime='{{ .Date.Format "2006-01-02" }}'>{{ .Date | time.Format .Site.Params.dateFormat.published }}</time>
+        {{ end }}
+        {{ if .ReadingTime }}
+          <span class="article-card__meta-sep">·</span>
+          <span>{{ T "article.readingTime" .ReadingTime }}</span>
+        {{ end }}
+      </div>
+    </div>
+  </a>
 </article>

@@ -4,6 +4,19 @@
   (dict "key" "labs"    "title" "Labs")
   (dict "key" "authors" "title" "Authors")
 -}}
+{{- /* Curated list of disciplines — implemented as a filtered view over the tags
+       taxonomy. Authors keep using `tags:` in frontmatter; this widget only
+       surfaces the disciplines that actually have one or more posts. */ -}}
+{{- $disciplines := slice
+    (dict "label" "Sequence-to-Function"      "slug" "seq2func")
+    (dict "label" "Sequence-to-Sequence"      "slug" "seq2seq")
+    (dict "label" "Single-cell Modeling"      "slug" "single-cell")
+    (dict "label" "Synthetic Biology"         "slug" "synthetic-biology")
+    (dict "label" "Interpretability / Mech AI" "slug" "interpretability")
+    (dict "label" "Multi-omics Integration"   "slug" "multi-omics")
+    (dict "label" "Experimental Design Loop"  "slug" "experimental-design")
+    (dict "label" "Benchmarking"              "slug" "benchmarking")
+-}}
 {{- $archivesQuery := first 1 (where $context.Site.Pages "Layout" "==" "archives") -}}
 {{- $archivesPage := false -}}
 {{- if $archivesQuery -}}{{ $archivesPage = index $archivesQuery 0 }}{{ end -}}
@@ -12,6 +25,31 @@
 
 <nav class="filter-bar">
   <h3 class="filter-bar__heading">Filter posts by&hellip;</h3>
+
+  {{- /* Discipline dropdown — only show disciplines whose tag-archive page exists */ -}}
+  {{- $availableDisciplines := slice -}}
+  {{- range $disciplines -}}
+    {{- $termPage := site.GetPage (printf "/tags/%s" .slug) -}}
+    {{- if $termPage -}}
+      {{- $availableDisciplines = $availableDisciplines | append (dict "label" .label "page" $termPage) -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if $availableDisciplines }}
+  <div class="filter-bar__group">
+    <div class="filter-bar__dropdown">
+      <button type="button" class="action-bar__btn filter-bar__dropdown-toggle" aria-expanded="false" aria-label="Discipline">
+        <span class="action-bar__label">Discipline</span>
+        <svg class="filter-bar__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <ul class="filter-bar__dropdown-menu" role="listbox">
+        {{- range $availableDisciplines -}}
+        <li role="option"><a href="{{ .page.RelPermalink }}">{{ .label }}</a></li>
+        {{- end -}}
+      </ul>
+    </div>
+  </div>
+  {{- end -}}
+
   {{- range $tax := $taxonomies -}}
     {{- $terms := index $context.Site.Taxonomies .key -}}
     {{- if $terms -}}
