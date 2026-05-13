@@ -1,70 +1,104 @@
 (function () {
-  var pills = document.querySelectorAll('.category-pills__pill');
-  if (!pills.length) return;
+  var groups = document.querySelectorAll('.category-pills[data-filter-group]');
+  if (!groups.length) return;
 
   var articles = document.querySelectorAll('.article-grid article[data-categories]');
   var emptyState = document.querySelector('.category-pills__empty-state');
 
-  // Progressive enhancement: convert links/spans to buttons, preserving hrefs
-  pills.forEach(function (pill) {
-    var btn = document.createElement('button');
-    btn.className = pill.className;
-    btn.setAttribute('data-filter', pill.getAttribute('data-filter'));
-    btn.textContent = pill.textContent;
-    btn.type = 'button';
+  // Track active filter per group (default 'all').
+  var activeFilters = {};
 
-    var href = pill.getAttribute('href');
-    if (href) {
-      btn.setAttribute('data-href', href);
-    }
-
-    var isActive = pill.classList.contains('category-pills__pill--active');
-    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-
-    pill.parentNode.replaceChild(btn, pill);
+  // Pass 1: build sets of category + tag values that actually exist on visible
+  // articles, so we know which pills correspond to no posts and should be
+  // greyed out.
+  var presentCategories = new Set();
+  var presentTags = new Set();
+  articles.forEach(function (article) {
+    (article.getAttribute('data-categories') || '').split(' ').forEach(function (t) {
+      if (t) presentCategories.add(t);
+    });
+    (article.getAttribute('data-tags') || '').split(' ').forEach(function (t) {
+      if (t) presentTags.add(t);
+    });
   });
 
-  // Re-query after replacement
-  var buttons = document.querySelectorAll('.category-pills__pill');
+  // Pass 2: replace each <a>/<span> pill with a <button>; mark empty pills as
+  // disabled.
+  groups.forEach(function (group) {
+    var groupName = group.getAttribute('data-filter-group');
+    activeFilters[groupName] = 'all';
 
-  buttons.forEach(function (btn) {
-    btn.addEventListener('click', function () {
+    var presentSet = groupName === 'discipline' ? presentTags : presentCategories;
+
+    var pills = group.querySelectorAll('.category-pills__pill');
+    pills.forEach(function (pill) {
+      var btn = document.createElement('button');
+      btn.className = pill.className;
+      btn.setAttribute('data-filter', pill.getAttribute('data-filter'));
+      btn.textContent = pill.textContent;
+      btn.type = 'button';
+
+      var href = pill.getAttribute('href');
+      if (href) {
+        btn.setAttribute('data-href', href);
+      }
+
       var filter = btn.getAttribute('data-filter');
+      var isEmpty = filter !== 'all' && !presentSet.has(filter);
+      if (isEmpty) {
+        btn.classList.add('category-pills__pill--empty');
+        btn.disabled = true;
+        btn.setAttribute('aria-disabled', 'true');
+      } else {
+        btn.classList.remove('category-pills__pill--empty');
+      }
 
-      // Update active state on all buttons
-      buttons.forEach(function (b) {
+      var isActive = pill.classList.contains('category-pills__pill--active');
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+
+      pill.parentNode.replaceChild(btn, pill);
+    });
+  });
+
+  function applyFilters() {
+    var visibleCount = 0;
+    articles.forEach(function (article) {
+      var cats = (article.getAttribute('data-categories') || '').split(' ');
+      var tags = (article.getAttribute('data-tags') || '').split(' ');
+      var visible = true;
+      Object.keys(activeFilters).forEach(function (group) {
+        var f = activeFilters[group];
+        if (f === 'all') return;
+        var pool = group === 'discipline' ? tags : cats;
+        if (pool.indexOf(f) === -1) visible = false;
+      });
+      article.hidden = !visible;
+      if (visible) visibleCount++;
+    });
+
+    if (emptyState) {
+      emptyState.hidden = visibleCount > 0;
+    }
+  }
+
+  // Wire click handlers per group
+  groups.forEach(function (group) {
+    var groupName = group.getAttribute('data-filter-group');
+    group.addEventListener('click', function (event) {
+      var btn = event.target.closest('.category-pills__pill');
+      if (!btn || btn.disabled) return;
+
+      activeFilters[groupName] = btn.getAttribute('data-filter');
+
+      var groupButtons = group.querySelectorAll('.category-pills__pill');
+      groupButtons.forEach(function (b) {
         b.classList.remove('category-pills__pill--active');
         b.setAttribute('aria-pressed', 'false');
       });
       btn.classList.add('category-pills__pill--active');
       btn.setAttribute('aria-pressed', 'true');
 
-      // Filter articles
-      var visibleCount = 0;
-      articles.forEach(function (article) {
-        var visible = filter === 'all' ||
-          (article.getAttribute('data-categories') || '').split(' ').indexOf(filter) !== -1;
-        article.hidden = !visible;
-        if (visible) visibleCount++;
-      });
-
-      // Toggle empty state with optional link to taxonomy archive
-      if (!emptyState) return;
-
-      if (visibleCount > 0) {
-        emptyState.hidden = true;
-        return;
-      }
-
-      var archiveHref = btn.getAttribute('data-href');
-      if (archiveHref) {
-        emptyState.innerHTML =
-          'No posts in this category yet. <a href="' + archiveHref + '">Browse all ' +
-          btn.textContent + ' posts</a>';
-      } else {
-        emptyState.textContent = 'No posts in this category yet.';
-      }
-      emptyState.hidden = false;
+      applyFilters();
     });
   });
 })();

@@ -1,0 +1,28 @@
+# Canonical list of disciplines for genomics x AI.
+# Each entry is a curated label that maps to a tag slug — authors keep using
+# the existing `tags:` field in frontmatter; this list defines which tags are
+# elevated to first-class "discipline" status in the UI.
+#
+# The label is what the reader sees. The slug must match the urlized form of
+# the tag in post frontmatter (e.g. `tags: ["seq2func"]`).
+
+- label: "Sequence-to-Function Modeling"
+  slug: "seq2func"
+
+- label: "Context-aware Seq-to-Function"
+  slug: "context-seq2func"
+
+- label: "Single-cell Modeling"
+  slug: "single-cell"
+
+- label: "Synthetic Biology"
+  slug: "synthetic-biology"
+
+- label: "Interpretability / Mech AI"
+  slug: "interpretability"
+
+- label: "Multi-omics"
+  slug: "multi-omics"
+
+- label: "Experimental Design Loop"
+  slug: "experimental-design"

@@ -1118,6 +1118,75 @@ span.category-pills__pill {
   cursor: default;
   opacity: 0.6;
 }
+
+/* ── Two-tier filter container ── */
+.category-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.category-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0;
+}
+.category-pills__group-label {
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--card-text-color-tertiary, #888);
+  margin-right: 2px;
+  min-width: 78px;
+}
+.category-pills--disciplines {
+  --discipline-accent: #d97706;
+  --discipline-accent-text: #fff;
+  gap: 6px;
+}
+[data-scheme="dark"] .category-pills--disciplines {
+  --discipline-accent: #fbbf24;
+  --discipline-accent-text: #0f172a;
+}
+.category-pills--disciplines .category-pills__pill {
+  padding: 4px 12px;
+  font-size: 1.25rem;
+  border-radius: 14px;
+}
+.category-pills--disciplines .category-pills__pill:not(.category-pills__pill--empty):not([disabled]):hover {
+  color: var(--discipline-accent);
+  border-color: var(--discipline-accent);
+}
+.category-pills--disciplines .category-pills__pill--active,
+.category-pills--disciplines .category-pills__pill--active:hover {
+  background: var(--discipline-accent);
+  color: var(--discipline-accent-text);
+  border-color: var(--discipline-accent);
+  opacity: 1;
+}
+.category-pills--disciplines .category-pills__group-label {
+  color: var(--discipline-accent);
+  opacity: 0.85;
+}
+
+/* Greyed-out, non-clickable empty pills (no posts under this filter) */
+.category-pills__pill--empty,
+.category-pills__pill[disabled] {
+  cursor: not-allowed;
+  opacity: 0.4;
+  color: var(--card-text-color-tertiary, #888);
+  border-color: var(--card-separator-color, rgba(218, 218, 218, 0.5));
+  background: transparent;
+}
+.category-pills__pill--empty:hover,
+.category-pills__pill[disabled]:hover {
+  color: var(--card-text-color-tertiary, #888);
+  border-color: var(--card-separator-color, rgba(218, 218, 218, 0.5));
+  background: transparent;
+}
 /* Override theme's display:flex on article cards so hidden attribute works */
 .article-list article[hidden],
 .article-grid article[hidden] {

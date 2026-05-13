@@ -1,34 +1,73 @@
-{{- /* Active pill is decided by the current page:
-     - Homepage → "All"
-     - /categories/<slug>/ → that category's pill
-     - any other archive (tags, labs, authors, …) → no pill active */ -}}
-{{- $current := "" -}}
+{{- /* Two-tier filter bar.
+
+     Row 1 — Categories (curated set of 4 article categories)
+     Row 2 — Disciplines (curated set defined in data/disciplines.yaml)
+
+     Active pill is derived from the current page:
+       - Homepage                    → "All" in Category row
+       - /categories/<slug>/         → that pill in Category row
+       - /tags/<discipline-slug>/    → that pill in Discipline row
+       - any other archive           → no pill active
+
+     On the homepage the script in home.html upgrades these pills to in-place
+     filter buttons (Category AND Discipline). On archive pages the script is
+     not loaded, so pills act as plain navigation links. */ -}}
+
+{{- $currentCat := "" -}}
+{{- $currentDisc := "" -}}
 {{- if .IsHome -}}
-  {{- $current = "all" -}}
+  {{- $currentCat = "all" -}}
+  {{- $currentDisc = "all" -}}
 {{- else if and (eq .Kind "term") (eq .Type "categories") -}}
-  {{- $current = .Data.Term | urlize -}}
+  {{- $currentCat = .Data.Term | urlize -}}
+{{- else if and (eq .Kind "term") (eq .Type "tags") -}}
+  {{- $currentDisc = .Data.Term | urlize -}}
 {{- end -}}
 
-<div class="category-pills" data-filter-group="category" role="group" aria-label="Filter by category">
-  <a href="{{ site.Home.RelPermalink }}"
-     class="category-pills__pill{{ if eq $current "all" }} category-pills__pill--active{{ end }}"
-     data-filter="all">All</a>
-  {{- range $cat := slice "Announcement" "Blog Post" "Tutorial" "Perspective" -}}
-    {{- $slug := . | urlize -}}
-    {{- $label := "Perspectives" -}}
-    {{- if eq . "Announcement" }}{{ $label = "Announcements" }}
-    {{- else if eq . "Blog Post" }}{{ $label = "Blogs" }}
-    {{- else if eq . "Tutorial" }}{{ $label = "Tutorials" }}
-    {{- end -}}
-    {{- $isActive := eq $current $slug -}}
-    {{- $termPage := site.GetPage (printf "/categories/%s" $slug) -}}
-    {{- if $termPage }}
-  <a href="{{ $termPage.Permalink }}"
-     class="category-pills__pill{{ if $isActive }} category-pills__pill--active{{ end }}"
-     data-filter="{{ $slug }}">{{ $label }}</a>
-    {{- else }}
-  <span class="category-pills__pill category-pills__pill--empty" data-filter="{{ $slug }}">{{ $label }}</span>
-    {{- end -}}
-  {{- end }}
+<div class="category-filters">
+
+  <div class="category-pills" data-filter-group="category" role="group" aria-label="Filter by category">
+    <span class="category-pills__group-label" aria-hidden="true">Category</span>
+    <a href="{{ site.Home.RelPermalink }}"
+       class="category-pills__pill{{ if eq $currentCat "all" }} category-pills__pill--active{{ end }}"
+       data-filter="all">All</a>
+    {{- range $cat := slice "Announcement" "Blog Post" "Tutorial" "Perspective" -}}
+      {{- $slug := . | urlize -}}
+      {{- $label := "Perspectives" -}}
+      {{- if eq . "Announcement" }}{{ $label = "Announcements" }}
+      {{- else if eq . "Blog Post" }}{{ $label = "Blogs" }}
+      {{- else if eq . "Tutorial" }}{{ $label = "Tutorials" }}
+      {{- end -}}
+      {{- $isActive := eq $currentCat $slug -}}
+      {{- $termPage := site.GetPage (printf "/categories/%s" $slug) -}}
+      {{- if $termPage }}
+    <a href="{{ $termPage.Permalink }}"
+       class="category-pills__pill{{ if $isActive }} category-pills__pill--active{{ end }}"
+       data-filter="{{ $slug }}">{{ $label }}</a>
+      {{- else }}
+    <span class="category-pills__pill category-pills__pill--empty" data-filter="{{ $slug }}">{{ $label }}</span>
+      {{- end -}}
+    {{- end }}
+  </div>
+
+  <div class="category-pills category-pills--disciplines" data-filter-group="discipline" role="group" aria-label="Filter by discipline">
+    <span class="category-pills__group-label" aria-hidden="true">Discipline</span>
+    <a href="{{ site.Home.RelPermalink }}"
+       class="category-pills__pill{{ if eq $currentDisc "all" }} category-pills__pill--active{{ end }}"
+       data-filter="all">All</a>
+    {{- range site.Data.disciplines }}
+      {{- $isActive := eq $currentDisc .slug -}}
+      {{- $termPage := site.GetPage (printf "/tags/%s" .slug) -}}
+      {{- if $termPage }}
+    <a href="{{ $termPage.Permalink }}"
+       class="category-pills__pill{{ if $isActive }} category-pills__pill--active{{ end }}"
+       data-filter="{{ .slug }}">{{ .label }}</a>
+      {{- else }}
+    <span class="category-pills__pill category-pills__pill--empty" data-filter="{{ .slug }}" aria-disabled="true">{{ .label }}</span>
+      {{- end -}}
+    {{- end }}
+  </div>
+
 </div>
-<div class="category-pills__empty-state" aria-live="polite" hidden>No posts in this category yet.</div>
+
+<div class="category-pills__empty-state" aria-live="polite" hidden>No posts match these filters yet.</div>
