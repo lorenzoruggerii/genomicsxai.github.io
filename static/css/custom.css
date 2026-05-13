@@ -1092,11 +1092,11 @@ article img {
 }
 .category-pills__pill--active {
   background: var(--accent-color, #34495e);
-  color: #fff;
+  color: var(--accent-color-text, #fff);
   border-color: var(--accent-color, #34495e);
 }
 .category-pills__pill--active:hover {
-  color: #fff;
+  color: var(--accent-color-text, #fff);
   opacity: 0.9;
 }
 [data-scheme="dark"] .category-pills__pill {
