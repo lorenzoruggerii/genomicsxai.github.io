@@ -1,0 +1,19 @@
+{{ define "main" }}
+    {{- $pages := partial "helper/pages.html" . -}}
+
+    {{ partial "widget/category-pills.html" . }}
+
+    <section class="article-grid">
+        {{ range $pages }}
+            {{ partial "article-list/default" . }}
+        {{ end }}
+    </section>
+
+    {{- partial "footer/footer" . -}}
+
+    <script src="{{ "js/category-filter.js" | relURL }}" defer></script>
+{{ end }}
+
+{{ define "right-sidebar" }}
+    {{ partial "sidebar/right.html" (dict "Context" . "Scope" "homepage") }}
+{{ end }}

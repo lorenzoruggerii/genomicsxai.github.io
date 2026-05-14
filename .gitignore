@@ -10,3 +10,20 @@ resources/_gen/
 
 # Editor
 .vscode/
+
+# Humanize plugin cache
+.humanize/
+
+# Codex CLI artifact
+.codex
+
+# Temporary working files
+temp/
+
+# Superpowers / brainstorming work products (specs, plans, scratch)
+docs/superpowers/
+
+# Node.js (test dependencies, not part of Hugo site)
+node_modules/
+package.json
+package-lock.json

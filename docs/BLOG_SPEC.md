@@ -132,6 +132,19 @@ Lab of the writer.
 
 Writer of the post. Author pages at `/authors/<slug>/` (affiliation, ORCID, website, list of posts).
 
+### 5.6 Categories
+
+Determines which homepage pill filter a post appears under.
+
+Supported values: **Announcement**, **Blog Post**, **Tutorial**, **Perspective**.
+
+- `Announcement` — editorial and community announcements (appears under the **Announcements** pill)
+- `Blog Post` — standard research write-ups (appears under the **Blogs** pill)
+- `Tutorial` — step-by-step technical guides (appears under the **Tutorials** pill)
+- `Perspective` — opinion pieces, field commentary (appears under the **Perspectives** pill)
+
+The homepage pill bar reads the `categories` taxonomy only, not `scope`. A post with `scope: ["tutorials"]` but `categories: ["Blog Post"]` will appear under the Blogs pill, not Tutorials.
+
 **Implementation:** Hugo taxonomies (`tags`, `scope`, `audience`, `labs`, `authors`, `categories`) + list/term layouts + `data/authors.yaml` for author profiles.
 
 ---

@@ -1,0 +1,11 @@
+{{- /*
+  Gradient placeholder for posts without a featured image.
+  Hue is derived from the post title via FNV32a so each post gets a stable, distinct color.
+  Used by article-list/default.html and article-list/hero.html.
+*/ -}}
+{{- $hue := mod (hash.FNV32a .Title) 360 -}}
+{{- $hue2 := mod (add $hue 40) 360 -}}
+<div class="article-card__fallback" aria-hidden="true"
+     style="--fb-h1: {{ $hue }}; --fb-h2: {{ $hue2 }};">
+  <span class="article-card__fallback-title">{{ .Title }}</span>
+</div>

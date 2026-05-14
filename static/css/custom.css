@@ -1062,3 +1062,258 @@ article img {
   max-height: 30vh;
   overflow-y: auto;
 }
+
+/* ── Category pill filter bar (homepage) ── */
+.category-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.category-pills__pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 16px;
+  font-size: 1.4rem;
+  font-weight: 500;
+  font-family: inherit;
+  line-height: 1.4;
+  border: 1px solid var(--card-separator-color, rgba(218, 218, 218, 0.5));
+  border-radius: 20px;
+  background: transparent;
+  color: var(--card-text-color-secondary, #555);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.category-pills__pill:hover {
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+.category-pills__pill--active {
+  background: var(--accent-color, #34495e);
+  color: var(--accent-color-text, #fff);
+  border-color: var(--accent-color, #34495e);
+}
+.category-pills__pill--active:hover {
+  color: var(--accent-color-text, #fff);
+  opacity: 0.9;
+}
+[data-scheme="dark"] .category-pills__pill {
+  border-color: rgba(255, 255, 255, 0.15);
+  color: var(--card-text-color-secondary, #aaa);
+}
+[data-scheme="dark"] .category-pills__pill:hover {
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+/* Dark-mode active pill needs an explicit override — the rule above sets
+   color on every pill at higher specificity than .category-pills__pill--active,
+   so without this the white-on-light-grey unreadable case returns. */
+[data-scheme="dark"] .category-pills__pill--active,
+[data-scheme="dark"] .category-pills__pill--active:hover {
+  background: var(--accent-color);
+  color: var(--accent-color-text);
+  border-color: var(--accent-color);
+}
+.category-pills__empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  font-size: 1.4rem;
+  color: var(--card-text-color-secondary, #888);
+}
+/* Spans (no-JS, empty categories) are not clickable */
+span.category-pills__pill {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* ── Two-tier filter container ── */
+.category-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.category-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0;
+}
+.category-pills__group-label {
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--card-text-color-tertiary, #888);
+  margin-right: 2px;
+  min-width: 78px;
+}
+.category-pills--disciplines {
+  --discipline-accent: #b45309;
+  --discipline-accent-text: #fff;
+  gap: 6px;
+}
+[data-scheme="dark"] .category-pills--disciplines {
+  --discipline-accent: #f59e0b;
+  --discipline-accent-text: #0f172a;
+}
+.category-pills--disciplines .category-pills__pill {
+  padding: 4px 12px;
+  font-size: 1.25rem;
+  border-radius: 14px;
+}
+.category-pills--disciplines .category-pills__pill:not(.category-pills__pill--empty):not([disabled]):hover {
+  color: var(--discipline-accent);
+  border-color: var(--discipline-accent);
+}
+.category-pills--disciplines .category-pills__pill--active,
+.category-pills--disciplines .category-pills__pill--active:hover {
+  background: var(--discipline-accent);
+  color: var(--discipline-accent-text);
+  border-color: var(--discipline-accent);
+  opacity: 1;
+}
+.category-pills--disciplines .category-pills__group-label {
+  color: var(--discipline-accent);
+  opacity: 0.85;
+}
+
+/* Greyed-out, non-clickable empty pills (no posts under this filter) */
+.category-pills__pill--empty,
+.category-pills__pill[disabled] {
+  cursor: not-allowed;
+  opacity: 0.4;
+  color: var(--card-text-color-tertiary, #888);
+  border-color: var(--card-separator-color, rgba(218, 218, 218, 0.5));
+  background: transparent;
+}
+.category-pills__pill--empty:hover,
+.category-pills__pill[disabled]:hover {
+  color: var(--card-text-color-tertiary, #888);
+  border-color: var(--card-separator-color, rgba(218, 218, 218, 0.5));
+  background: transparent;
+}
+/* Override theme's display:flex on article cards so hidden attribute works */
+.article-list article[hidden],
+.article-grid article[hidden] {
+  display: none !important;
+}
+
+/* Compact grid */
+.article-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 32px 24px;
+}
+@media (min-width: 600px) {
+  .article-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1100px) {
+  .article-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.article-card {
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+}
+.article-card__link {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+  height: 100%;
+}
+.article-card__media {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--card-border-radius, 10px);
+  background: var(--card-background-selected, #eaeaea);
+}
+.article-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.25s ease;
+}
+.article-card:hover .article-card__image {
+  transform: scale(1.02);
+}
+.article-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 4px;
+}
+.article-card__title {
+  font-size: 1.7rem;
+  line-height: 1.3;
+  margin: 0;
+  font-weight: 600;
+  color: var(--card-text-color-main);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.article-card:hover .article-card__title {
+  color: var(--accent-color);
+}
+.article-card__category {
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent-color);
+  margin-bottom: 2px;
+}
+.article-card__meta {
+  font-size: 1.25rem;
+  color: var(--card-text-color-tertiary, #888);
+  font-variant-numeric: tabular-nums;
+  margin-top: auto;
+}
+.article-card__meta-sep {
+  margin: 0 0.4em;
+}
+
+/* Gradient placeholder when a post has no featured image */
+.article-card__fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg,
+    hsl(var(--fb-h1, 220), 55%, 55%),
+    hsl(var(--fb-h2, 260), 55%, 42%));
+  padding: 16px;
+}
+.article-card__fallback-title {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1.4rem;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* Focus states for keyboard nav */
+.article-card__link:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
