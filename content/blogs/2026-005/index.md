@@ -20,7 +20,7 @@ authors_display:
 
 editor: "Genomics X AI Editors"
 
-tags: ["genomics", "AlphaGenome", "JAX", "PyTorch", "benchmarking", "GPUs"]
+tags: ["genomics", "AlphaGenome", "JAX", "PyTorch", "benchmarking", "GPUs", "seq2func"]
 categories: ["Blog Post"]
 
 scope: ["insights"]
