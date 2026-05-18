@@ -19,13 +19,7 @@
 {{- $fullDate := $page.Date | dateFormat "2 January 2006" -}}
 {{- $dateISO := $page.Date | dateFormat "2006-01-02" -}}
 {{- $citeURL := $page.Permalink | absURL -}}
-{{- $conceptrecid := $zenodoEntry.conceptrecid | default "" -}}
-{{- $doi := "" -}}
-{{- if $conceptrecid -}}
-  {{- $doi = printf "10.5281/zenodo.%v" $conceptrecid -}}
-{{- else -}}
-  {{- $doi = $zenodoEntry.current_doi | default ($page.Params.doi | default "") -}}
-{{- end -}}
+{{- $doi := $zenodoEntry.current_doi | default ($page.Params.doi | default "") -}}
 {{- $citationPlain := printf "%s. \"%s.\" %s, %s. %s" $authorStr $page.Title $blogName $fullDate $citeURL -}}
 {{- if $doi -}}
   {{- $citationPlain = printf "%s. https://doi.org/%s" $citationPlain $doi -}}

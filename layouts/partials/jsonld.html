@@ -6,13 +6,7 @@
     {{- $zenodoEntry = . -}}
   {{- end -}}
 {{- end -}}
-{{- $conceptrecid := $zenodoEntry.conceptrecid | default "" -}}
-{{- $doi := "" -}}
-{{- if $conceptrecid -}}
-  {{- $doi = printf "10.5281/zenodo.%v" $conceptrecid -}}
-{{- else -}}
-  {{- $doi = $zenodoEntry.current_doi | default (.Params.doi | default "") -}}
-{{- end -}}
+{{- $doi := $zenodoEntry.current_doi | default (.Params.doi | default "") -}}
 {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
