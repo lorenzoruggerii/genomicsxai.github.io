@@ -1,4 +1,5 @@
 {{ define "main" }}
+{{ partial "widget/category-pills.html" . }}
 <article class="author-page">
   {{ $slug := .Data.Term }}
   {{ $author := index site.Data.authors $slug }}
@@ -18,7 +19,7 @@
   </header>
 
   {{ $paginator := partial "helper/paginator.html" . }}
-  <section class="article-list">
+  <section class="article-grid">
     {{ range $paginator.Pages }}
       {{ partial "article-list/default" . }}
     {{ end }}

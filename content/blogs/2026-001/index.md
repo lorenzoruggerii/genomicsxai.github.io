@@ -14,7 +14,7 @@ authors_display:
 editor: "Genomics X AI Editors"
 
 tags: ["genomics", "AI", "community"]
-categories: ["Blog Post"]
+categories: ["Announcement"]
 
 scope: ["insights"]
 audience: ["within-field", "general"]
