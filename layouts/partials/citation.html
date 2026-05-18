@@ -12,7 +12,10 @@
     <em>{{ $blogName }}</em>,
     {{ $fullDate }}.
     <a href="{{ $url }}">{{ $url }}</a>.
-    {{ with $citationData.doi }} DOI: {{ . }}.{{ end }}
+    {{ with $citationData.doi }}
+      {{- $doiURL := printf "https://doi.org/%s" . -}}
+      <a href="{{ $doiURL }}" target="_blank" rel="noopener">{{ $doiURL }}</a>.
+    {{- end }}
   </p>
 </div>
 <script src="{{ "js/citation.js" | relURL }}" defer></script>
