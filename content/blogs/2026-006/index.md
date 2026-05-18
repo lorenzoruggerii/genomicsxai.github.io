@@ -1,7 +1,6 @@
 ---
 post_id: "2026-006"
 title: "DOI Workflow Validation Post"
-draft: true
 authors: ["Genomics X AI Editors"]
 
 authors_display:
@@ -18,7 +17,7 @@ scope: ["insights"]
 audience: ["general"]
 labs: ["Genomics x AI"]
 
-status: "withdrawn"
+status: "accepted"
 revision: 1
 
 date_submitted: 2026-05-18
