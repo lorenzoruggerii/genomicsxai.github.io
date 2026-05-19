@@ -1,19 +1,6 @@
 {{- $page := .Context -}}
 {{- if not $page.Title }}{{ return }}{{ end -}}
-{{- $authList := $page.Params.authors_display | default $page.Params.authors -}}
-{{- $authorNames := slice -}}
-{{- with $authList -}}
-  {{- range . -}}
-    {{- $authorNames = $authorNames | append (cond (reflect.IsMap .) .name .) -}}
-  {{- end -}}
-{{- end -}}
-{{- $authorStr := delimit $authorNames ", " -}}
-{{- $blogName := $page.Params.blog_name | default (site.Data.blog.blog_name | default "Genomics × AI Blog") -}}
-{{- $year := $page.Date | dateFormat "2006" -}}
-{{- $fullDate := $page.Date | dateFormat "2 January 2006" -}}
-{{- $citeUrl := $page.Permalink | absURL -}}
-{{- $citationPlain := printf "%s. \"%s.\" %s, %s. %s" $authorStr $page.Title $blogName $fullDate $citeUrl -}}
-{{- $citationData := dict "citation" $citationPlain "title" $page.Title "authors" $authorNames "year" $year "doi" ($page.Params.doi | default "") "postId" ($page.Params.post_id | default "") "url" $page.Permalink "blogName" $blogName -}}
+{{- $citationData := partial "helper/citation-data.html" $page -}}
 {{- $shareUrl := $page.Permalink | absURL -}}
 {{- $shareText := $page.Title -}}
 {{- $linkedInUrl := printf "https://www.linkedin.com/sharing/share-offsite/?url=%s" $shareUrl -}}

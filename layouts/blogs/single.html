@@ -7,8 +7,9 @@
     {{- $TOCManuallyDisabled := eq .Params.toc false -}}
     {{- $TOCEnabled := and (not $TOCManuallyDisabled) $TOCWidgetEnabled -}}
     {{- $hasTOC := gt (len .TableOfContents) 50 -}}
+    {{- $hasPostActions := eq .Section "blogs" -}}
     {{- .Scratch.Set "TOCEnabled" (and $TOCEnabled $hasTOC) -}}
-    {{- .Scratch.Set "hasWidget" (and $TOCEnabled $hasTOC) -}}
+    {{- .Scratch.Set "hasWidget" (or (and $TOCEnabled $hasTOC) $hasPostActions) -}}
 {{ end }}
 
 {{ define "main" }}

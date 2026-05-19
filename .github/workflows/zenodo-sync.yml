@@ -1,0 +1,105 @@
+name: Sync Zenodo DOI Metadata
+
+on:
+  workflow_dispatch:
+    inputs:
+      blog_post_paths:
+        description: "Space-separated list of content/blogs/*/index.md paths to sync with Zenodo"
+        required: true
+        type: string
+      zenodo_dry_run:
+        description: "If true, log intended Zenodo sync actions without creating records"
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: zenodo-sync-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  zenodo-sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_CONTENTS_WRITE_TOKEN || github.token }}
+          submodules: true
+          fetch-depth: 0
+
+      - name: Validate input
+        shell: bash
+        run: |
+          read -r -a files <<< "${{ github.event.inputs.blog_post_paths }}"
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No blog_post_paths provided."
+            exit 1
+          fi
+          printf '%s\n' "${files[@]}" > /tmp/changed-blog-posts.txt
+          while IFS= read -r path; do
+            if [ ! -f "$path" ]; then
+              echo "Selected blog post does not exist: $path"
+              exit 1
+            fi
+            status=$(ruby -e 'require "yaml"; require "date"; raw = File.read(ARGV[0]); match = raw.match(/\A---\s*\n(.*?)\n---\s*\n/m) or abort("Missing frontmatter in #{ARGV[0]}"); fm = YAML.safe_load(match[1], permitted_classes: [Date, Time], aliases: true) || {}; print fm["status"].to_s' "$path")
+            if [ "$status" != "accepted" ]; then
+              echo "Selected blog post is not accepted: $path (status: ${status:-<empty>})"
+              exit 1
+            fi
+          done < /tmp/changed-blog-posts.txt
+          echo "Target blog posts:"
+          cat /tmp/changed-blog-posts.txt
+
+      - name: Validate required Zenodo sync secrets
+        env:
+          ZENODO_API_TOKEN: ${{ secrets.ZENODO_API_TOKEN }}
+          GH_CONTENTS_WRITE_TOKEN: ${{ secrets.GH_CONTENTS_WRITE_TOKEN }}
+        run: |
+          if [ -z "$ZENODO_API_TOKEN" ]; then
+            echo "ZENODO_API_TOKEN is not configured."
+            exit 1
+          fi
+          if [ "${{ github.event.inputs.zenodo_dry_run }}" != "true" ] && [ -z "$GH_CONTENTS_WRITE_TOKEN" ]; then
+            echo "GH_CONTENTS_WRITE_TOKEN is required to commit updated data/zenodo.json."
+            exit 1
+          fi
+
+      - name: Sync Zenodo DOI metadata
+        env:
+          ZENODO_API_TOKEN: ${{ secrets.ZENODO_API_TOKEN }}
+          ZENODO_COMMUNITY: ${{ secrets.ZENODO_COMMUNITY }}
+          SITE_URL: https://genomicsxai.github.io
+          DRY_RUN: ${{ github.event.inputs.zenodo_dry_run == 'true' && '1' || '0' }}
+        run: |
+          if [ -z "$ZENODO_API_TOKEN" ]; then
+            echo "ZENODO_API_TOKEN is not configured."
+            exit 1
+          fi
+          chmod +x .github/scripts/sync-zenodo-dois.rb
+          ruby .github/scripts/sync-zenodo-dois.rb $(tr '\n' ' ' < /tmp/changed-blog-posts.txt)
+
+      - name: Upload Zenodo metadata artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zenodo-metadata
+          path: data/zenodo.json
+
+      - name: Commit Zenodo metadata
+        if: github.event.inputs.zenodo_dry_run != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_CONTENTS_WRITE_TOKEN }}
+        run: |
+          if [ -z "$(git status --porcelain -- data/zenodo.json)" ]; then
+            echo "No Zenodo metadata changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git add data/zenodo.json
+          git commit -m "chore: sync Zenodo DOI metadata"
+          git push

@@ -24,33 +24,7 @@
       btn.addEventListener('click', function() {
         var d = getData(btn);
         if (!d) return;
-        var format = btn.getAttribute('data-download');
-        var blob, name;
-        if (format === 'bib') {
-          var authors = (d.authors && d.authors.length) ? d.authors.join(' and ') : 'Unknown';
-          var rb = '\u007D';
-          var titleBib = (d.title || '').replace(/\{/g, '{{').replace(/\}/g, rb + rb);
-          var bib = '@article{' + (d.postId || 'post') + ',\n  author = {' + authors + '},\n  title = {' + titleBib + '},\n  journal = {' + (d.blogName || 'Genomics × AI Blog') + '},\n  year = {' + (d.year || '') + '},\n  url = {' + (d.url || '') + '}' + (d.doi ? ',\n  doi = {' + d.doi + '}' : '') + '\n' + rb;
-          blob = new Blob([bib], { type: 'application/x-bibtex' });
-          name = (d.postId || 'citation') + '.bib';
-        } else if (format === 'ris') {
-          var ris = 'TY  - BLOG\n';
-          if (d.authors && d.authors.length) d.authors.forEach(function(a) { ris += 'AU  - ' + a + '\n'; });
-          ris += 'TI  - ' + (d.title || '') + '\n';
-          ris += 'JO  - ' + (d.blogName || 'Genomics × AI Blog') + '\n';
-          ris += 'PY  - ' + (d.year || '') + '\n';
-          if (d.url) ris += 'UR  - ' + d.url + '\n';
-          if (d.doi) ris += 'DO  - ' + d.doi + '\n';
-          ris += 'ER  - \n';
-          blob = new Blob([ris], { type: 'application/x-research-info-systems' });
-          name = (d.postId || 'citation') + '.ris';
-        } else return;
-        var a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = name;
-        a.rel = 'noopener';
-        a.click();
-        URL.revokeObjectURL(a.href);
+        downloadCitation(d, btn.getAttribute('data-download'));
       });
     });
   }
@@ -77,33 +51,48 @@
     btn.addEventListener('click', function() {
       var d = getData(btn);
       if (!d) return;
-      var format = btn.getAttribute('data-download');
-      var blob, name;
-      if (format === 'bib') {
-        var authors = (d.authors && d.authors.length) ? d.authors.join(' and ') : 'Unknown';
-        var rb = '\u007D';
-        var titleBib = (d.title || '').replace(/\{/g, '{{').replace(/\}/g, rb + rb);
-        var bib = '@article{' + (d.postId || 'post') + ',\n  author = {' + authors + '},\n  title = {' + titleBib + '},\n  journal = {' + (d.blogName || 'Genomics × AI Blog') + '},\n  year = {' + (d.year || '') + '},\n  url = {' + (d.url || '') + '}' + (d.doi ? ',\n  doi = {' + d.doi + '}' : '') + '\n' + rb;
-        blob = new Blob([bib], { type: 'application/x-bibtex' });
-        name = (d.postId || 'citation') + '.bib';
-      } else if (format === 'ris') {
-        var ris = 'TY  - BLOG\n';
-        if (d.authors && d.authors.length) d.authors.forEach(function(a) { ris += 'AU  - ' + a + '\n'; });
-        ris += 'TI  - ' + (d.title || '') + '\n';
-        ris += 'JO  - ' + (d.blogName || 'Genomics × AI Blog') + '\n';
-        ris += 'PY  - ' + (d.year || '') + '\n';
-        if (d.url) ris += 'UR  - ' + d.url + '\n';
-        if (d.doi) ris += 'DO  - ' + d.doi + '\n';
-        ris += 'ER  - \n';
-        blob = new Blob([ris], { type: 'application/x-research-info-systems' });
-        name = (d.postId || 'citation') + '.ris';
-      } else return;
-      var a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = name;
-      a.rel = 'noopener';
-      a.click();
-      URL.revokeObjectURL(a.href);
+      downloadCitation(d, btn.getAttribute('data-download'));
     });
   });
+
+  function downloadCitation(d, format) {
+    var blob, name;
+    if (format === 'bib') {
+      var authors = (d.authors && d.authors.length) ? d.authors.join(' and ') : 'Unknown';
+      var rb = '\u007D';
+      var titleBib = (d.title || '').replace(/\{/g, '{{').replace(/\}/g, rb + rb);
+      var bib = '@article{' + (d.postId || 'post') +
+        ',\n  author = {' + authors + '}' +
+        ',\n  title = {' + titleBib + '}' +
+        ',\n  journal = {' + (d.blogName || 'Genomics × AI Blog') + '}' +
+        ',\n  year = {' + (d.year || '') + '}' +
+        (d.dateIso ? ',\n  date = {' + d.dateIso + '}' : '') +
+        (d.url ? ',\n  url = {' + d.url + '}' : '') +
+        (d.doi ? ',\n  doi = {' + d.doi + '}' : '') +
+        '\n' + rb;
+      blob = new Blob([bib], { type: 'application/x-bibtex' });
+      name = (d.postId || 'citation') + '.bib';
+    } else if (format === 'ris') {
+      var ris = 'TY  - BLOG\n';
+      if (d.authors && d.authors.length) d.authors.forEach(function(a) { ris += 'AU  - ' + a + '\n'; });
+      ris += 'TI  - ' + (d.title || '') + '\n';
+      ris += 'JO  - ' + (d.blogName || 'Genomics × AI Blog') + '\n';
+      ris += 'PY  - ' + (d.year || '') + '\n';
+      if (d.dateIso) ris += 'DA  - ' + d.dateIso.replace(/-/g, '/') + '\n';
+      if (d.url) ris += 'UR  - ' + d.url + '\n';
+      if (d.doi) ris += 'DO  - ' + d.doi + '\n';
+      ris += 'ER  - \n';
+      blob = new Blob([ris], { type: 'application/x-research-info-systems' });
+      name = (d.postId || 'citation') + '.ris';
+    } else {
+      return;
+    }
+
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.rel = 'noopener';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
 })();

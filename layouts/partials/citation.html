@@ -1,17 +1,8 @@
-{{- $authList := .Params.authors_display | default .Params.authors -}}
-{{- $authorNames := slice -}}
-{{- with $authList -}}
-  {{- range . -}}
-    {{- $authorNames = $authorNames | append (cond (reflect.IsMap .) .name .) -}}
-  {{- end -}}
-{{- end -}}
-{{- $authorStr := delimit $authorNames ", " -}}
-{{- $blogName := .Params.blog_name | default (site.Data.blog.blog_name | default "Genomics × AI Blog") -}}
-{{- $year := .Date | dateFormat "2006" -}}
-{{- $fullDate := .Date | dateFormat "2 January 2006" -}}
+{{- $citationData := partial "helper/citation-data.html" . -}}
+{{- $authorStr := delimit $citationData.authors ", " -}}
+{{- $blogName := $citationData.blogName -}}
+{{- $fullDate := $citationData.fullDate -}}
 {{- $url := .Permalink | absURL -}}
-{{- $citationPlain := printf "%s. \"%s.\" %s, %s. %s" $authorStr .Title $blogName $fullDate $url -}}
-{{- $citationData := dict "citation" $citationPlain "title" .Title "authors" $authorNames "year" $year "doi" (.Params.doi | default "") "postId" (.Params.post_id | default "") "url" .Permalink "blogName" $blogName -}}
 
 <div class="citation-box">
   <h3 class="citation-box__title">Cite this post:</h3>
@@ -21,7 +12,10 @@
     <em>{{ $blogName }}</em>,
     {{ $fullDate }}.
     <a href="{{ $url }}">{{ $url }}</a>.
-    {{ with .Params.doi }} <a href="https://doi.org/{{ . }}">DOI: {{ . }}</a>{{ end }}
+    {{ with $citationData.doi }}
+      {{- $doiURL := printf "https://doi.org/%s" . -}}
+      <a href="{{ $doiURL }}" target="_blank" rel="noopener">{{ $doiURL }}</a>.
+    {{- end }}
   </p>
 </div>
 <script src="{{ "js/citation.js" | relURL }}" defer></script>

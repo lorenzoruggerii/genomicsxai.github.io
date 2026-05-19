@@ -36,18 +36,21 @@ scope: ["tutorials"]
 audience: ["general"]
 labs: ["Koo lab","Kundaje lab"]
 
-status: "submitted"
+status: "accepted"
 revision: 1
 
 date_submitted: 2026-02-25
-date_accepted:
+date_accepted: 2026-02-25
 date: 2026-02-25
 
 doi: ""
+zenodo_url: ""
 revision_history:
   - version: 1
     date: 2026-02-25
     notes: "Initial submission"
+    doi: ""
+    zenodo_url: ""
 ---
 
 {{< summary >}}

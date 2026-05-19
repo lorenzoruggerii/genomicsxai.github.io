@@ -11,11 +11,11 @@ resources/_gen/
 # Editor
 .vscode/
 
+# Local Codex workspace state
+.codex/
+
 # Humanize plugin cache
 .humanize/
-
-# Codex CLI artifact
-.codex
 
 # Temporary working files
 temp/

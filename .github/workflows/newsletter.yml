@@ -119,17 +119,6 @@ jobs:
           print(f"Found {len(posts)} new post(s)")
           sys.exit(0)
           PYEOF
-                  "summary": summary,
-                  "date": date_str,
-              })
-
-          # Write results for the next step
-          with open("/tmp/new_posts.json", "w") as f:
-              json.dump(posts, f)
-
-          print(f"Found {len(posts)} new post(s)")
-          sys.exit(0)
-          PYEOF
         env:
           DAYS_BACK: ${{ github.event.inputs.days_back || 7 }}
 

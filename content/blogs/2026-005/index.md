@@ -20,28 +20,33 @@ authors_display:
 
 editor: "Genomics X AI Editors"
 
-tags: ["genomics", "AlphaGenome", "JAX", "PyTorch", "benchmarking", "GPUs"]
+tags: ["genomics", "AlphaGenome", "JAX", "PyTorch", "benchmarking", "GPUs", "seq2func"]
 categories: ["Blog Post"]
 
 scope: ["insights"]
 audience: ["general"]
 labs: ["Kundaje lab", "Mostafavi lab"]
 
-status: "submitted"
+status: "accepted"
 revision: 2
 
 date_submitted: 2026-04-12
-date_accepted:
+date_accepted: 2026-04-15
 date: 2026-04-15
 
 doi: ""
+zenodo_url: ""
 revision_history:
   - version: 1
     date: 2026-04-12
     notes: "Initial benchmark draft"
+    doi: ""
+    zenodo_url: ""
   - version: 2
     date: 2026-04-15
     notes: "Updated with H100 results"
+    doi: ""
+    zenodo_url: ""
 ---
 
 {{< summary >}}

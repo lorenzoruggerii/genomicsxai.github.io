@@ -84,13 +84,19 @@ revision: 2
 date_submitted: 2026-02-01
 date_accepted: 2026-02-17
 doi: ""
+zenodo_url: ""
 revision_history:
   - version: 1
     date: 2026-02-01
     notes: "Initial submission"
+    doi: ""
+    zenodo_url: ""
   - version: 2
     date: 2026-02-10
     notes: "Revised per reviewer comments"
+    doi: ""
+    zenodo_url: ""
+---
 ```
 
 
@@ -172,7 +178,15 @@ The homepage pill bar reads the `categories` taxonomy only, not `scope`. A post 
 - Deploy to GitHub Pages (via `github-pages` environment).  
 - Optional: create release tag.
 
-**Implementation:** GitHub Actions (e.g. `pr-build`, `frontmatter`, `links`, `deploy`).
+**Implementation:** GitHub Actions (e.g. `pr-build`, `frontmatter`, `links`, `deploy`, `test-publish`).
+
+### 8.3 Manual test-publish workflow
+
+- `test-publish` is a manual `workflow_dispatch` workflow for exercising the `main` publish pipeline on a branch.
+- It mirrors production steps closely: discussion sync/export, editor fetch, changed-post detection, optional Zenodo sync, Hugo build, and optional deployment.
+- Preview output is deployed under `https://genomicsxai.github.io/previews/manual/<slug>/` so it does not overwrite the live site.
+- Zenodo sync defaults to dry-run. For end-to-end testing, point `zenodo_api_base` at `https://sandbox.zenodo.org/api`.
+- The editor fetch logic is shared by `deploy.yml` and `test-publish.yml` via `.github/scripts/fetch-editors.sh` so test and production stay consistent.
 
 
 ## 8. Forum and public discussion
@@ -202,10 +216,14 @@ GitHub Discussions, categories:
 - RIS download (e.g. `static/bib/<post_id>.ris` when generated).  
 - Copy citation button.  
 - DOI link when available.
+- Zenodo link when available.
+- DOI version history from `revision_history` when revision entries include DOI metadata.
 
 Rendered via Hugo partial (e.g. `citation.html`).
 
 ### 9.2 Machine-readable metadata
+
+When the repository secret `ZENODO_API_TOKEN` is configured, the deploy workflow can mint/publish Zenodo records for accepted posts changed in the current push and store the resulting DOI metadata in `data/zenodo.json`. Frontmatter DOI fields remain valid as a manual override/fallback.
 
 - JSON-LD `BlogPosting` schema.  
 - Generated via Hugo partial (e.g. `jsonld.html`).
