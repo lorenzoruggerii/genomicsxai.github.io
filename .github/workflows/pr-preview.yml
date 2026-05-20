@@ -22,8 +22,8 @@ jobs:
   deploy-preview:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      pull-requests: read
+      contents: write
+      pull-requests: write
 
     steps:
       # Safety check: only proceed if the PR exclusively touches known-safe paths.
@@ -61,29 +61,11 @@ jobs:
             echo "safe=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Detect available write tokens
-        id: token_flags
-        env:
-          GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
-          GH_PR_COMMENT_TOKEN: ${{ secrets.GH_PR_COMMENT_TOKEN }}
-        shell: bash
-        run: |
-          if [ -n "$GH_PAGES_TOKEN" ]; then
-            echo "has_pages_token=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_pages_token=false" >> "$GITHUB_OUTPUT"
-          fi
-          if [ -n "$GH_PR_COMMENT_TOKEN" ]; then
-            echo "has_pr_comment_token=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_pr_comment_token=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: "Comment: preview skipped (unsafe PR)"
-        if: steps.safety.outputs.safe == 'false' && steps.token_flags.outputs.has_pr_comment_token == 'true'
+        if: steps.safety.outputs.safe == 'false'
         uses: marocchino/sticky-pull-request-comment@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PR_COMMENT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           header: preview-deployment
           message: |
@@ -154,20 +136,20 @@ jobs:
                --baseURL "https://genomicsxai.github.io/previews/pr-${{ github.event.number }}/"
 
       - name: Deploy preview to gh-pages
-        if: steps.safety.outputs.safe == 'true' && steps.token_flags.outputs.has_pages_token == 'true'
+        if: steps.safety.outputs.safe == 'true'
         uses: peaceiris/actions-gh-pages@v4
         with:
-          github_token: ${{ secrets.GH_PAGES_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
           publish_branch: gh-pages
           destination_dir: previews/pr-${{ github.event.number }}
           keep_files: true
 
       - name: Post preview comment
-        if: steps.safety.outputs.safe == 'true' && steps.token_flags.outputs.has_pr_comment_token == 'true'
+        if: steps.safety.outputs.safe == 'true'
         uses: marocchino/sticky-pull-request-comment@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PR_COMMENT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           header: preview-deployment
           message: |
@@ -179,8 +161,3 @@ jobs:
             ${{ steps.detect.outputs.links }}
             > Not indexed by search engines and not linked from the main blog.
             > Updated automatically on each new commit. Deleted when the PR is closed.
-
-      - name: Report missing preview deploy token
-        if: steps.safety.outputs.safe == 'true' && steps.token_flags.outputs.has_pages_token != 'true'
-        run: |
-          echo "GH_PAGES_TOKEN is not configured; skipping PR preview deploy."

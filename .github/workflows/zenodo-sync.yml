@@ -21,12 +21,11 @@ jobs:
   zenodo-sync:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GH_CONTENTS_WRITE_TOKEN || github.token }}
           submodules: true
           fetch-depth: 0
 
@@ -56,14 +55,9 @@ jobs:
       - name: Validate required Zenodo sync secrets
         env:
           ZENODO_API_TOKEN: ${{ secrets.ZENODO_API_TOKEN }}
-          GH_CONTENTS_WRITE_TOKEN: ${{ secrets.GH_CONTENTS_WRITE_TOKEN }}
         run: |
           if [ -z "$ZENODO_API_TOKEN" ]; then
             echo "ZENODO_API_TOKEN is not configured."
-            exit 1
-          fi
-          if [ "${{ github.event.inputs.zenodo_dry_run }}" != "true" ] && [ -z "$GH_CONTENTS_WRITE_TOKEN" ]; then
-            echo "GH_CONTENTS_WRITE_TOKEN is required to commit updated data/zenodo.json."
             exit 1
           fi
 
@@ -91,7 +85,7 @@ jobs:
       - name: Commit Zenodo metadata
         if: github.event.inputs.zenodo_dry_run != 'true'
         env:
-          GH_TOKEN: ${{ secrets.GH_CONTENTS_WRITE_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [ -z "$(git status --porcelain -- data/zenodo.json)" ]; then
             echo "No Zenodo metadata changes to commit."
