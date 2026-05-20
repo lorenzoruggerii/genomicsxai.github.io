@@ -1,17 +1,6 @@
 name: test-publish
 
 on:
-  push:
-    branches:
-      - issue-24-add-doi
-    paths:
-      - 'content/blogs/**'
-      - 'data/zenodo.json'
-      - 'layouts/**'
-      - 'config.toml'
-      - 'config/**'
-      - '.github/scripts/**'
-      - '.github/workflows/test-publish.yml'
   workflow_dispatch:
     inputs:
       blog_post_paths:

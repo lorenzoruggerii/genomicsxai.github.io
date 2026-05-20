@@ -230,22 +230,22 @@ GitHub Discussions, categories:
 - BibTeX download (e.g. `static/bib/<post_id>.bib` when generated).  
 - RIS download (e.g. `static/bib/<post_id>.ris` when generated).  
 - Copy citation button.  
-- DOI link when available.
-- Zenodo link when available.
-- DOI version history from `revision_history` when revision entries include DOI metadata.
+- Current version DOI link when available, rendered as a full `https://doi.org/...` URL.
 
 Rendered via Hugo partial (e.g. `citation.html`).
 
-When the repository secret `ZENODO_API_TOKEN` is configured, the deploy workflow can mint/publish Zenodo records for accepted posts changed in the current push and store the resulting DOI metadata in `data/zenodo.json`. Frontmatter DOI fields remain valid as a manual override/fallback.
+When the repository secret `ZENODO_API_TOKEN` is configured, the deploy workflow mints/publishes Zenodo records for accepted posts changed in the current push and stores the resulting DOI metadata in `data/zenodo.json`. Frontmatter DOI fields remain valid as a manual override/fallback. BibTeX and RIS exports use standard bare DOI values, while visible citations use full DOI URLs.
 
 ### 10.2 Machine-readable metadata
 
 - JSON-LD `BlogPosting` schema.  
 - Generated via Hugo partial (e.g. `jsonld.html`).
 
-### 10.3 DOI (optional, Phase 2)
+### 10.3 DOI
 
-- GitHub Release on acceptance; archive via Zenodo; store DOI in frontmatter.
+- Accepted blog posts changed on `main` are archived through Zenodo by `deploy.yml`.
+- New post revisions are published as Zenodo new versions under the same concept record.
+- DOI metadata is stored in `data/zenodo.json`; frontmatter `doi` and `zenodo_url` fields are fallback/manual override fields.
 
 ---
 
