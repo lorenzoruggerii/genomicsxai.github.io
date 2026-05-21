@@ -119,8 +119,9 @@
       <div id="submit-form__parse-error" class="submit-form__field-error" hidden></div>
     </div>
 
-    <!-- Frontmatter fields (hidden until file parsed) -->
-    <div id="submit-form__fields" class="submit-form__section" hidden>
+    <!-- Frontmatter fields. Visible by default once the user clicks Continue —
+         uploading an index.md just pre-fills these. -->
+    <div id="submit-form__fields" class="submit-form__section">
       <h3 class="submit-form__section-title">Review frontmatter</h3>
       <p class="submit-form__help">Edit fields below. If you uploaded a template, they're pre-filled from your file; otherwise fill them in directly. Fix any errors before submitting.</p>
 
@@ -140,7 +141,7 @@
       <div class="submit-form__field">
         <label class="submit-form__label submit-form__label--required" for="sf-tags">Tags</label>
         <input type="text" id="sf-tags" class="submit-form__input submit-form__editable" placeholder="genomics, AI, single-cell">
-        <span class="submit-form__help">Comma-separated</span>
+        <span class="submit-form__help">Comma-separated. Common tags: <code>genomics</code>, <code>deep-learning</code>, <code>fine-tuning</code>, <code>foundation-models</code>, <code>RNA-seq</code>, <code>scRNA-seq</code>, <code>ATAC-seq</code>, <code>regulatory-genomics</code>, <code>interpretability</code>, <code>benchmarking</code>, <code>AlphaGenome</code>, <code>PyTorch</code>, <code>JAX</code>.</span>
         <div id="sf-error-tags" class="submit-form__field-error" hidden></div>
       </div>
 
@@ -190,34 +191,46 @@
       </div>
 
       <div class="submit-form__field">
-        <label class="submit-form__label" for="sf-doi">DOI (optional)</label>
-        <input type="text" id="sf-doi" class="submit-form__input submit-form__editable" placeholder="10.xxxx/...">
-      </div>
-
-      <div class="submit-form__field">
         <label class="submit-form__checkbox">
           <input type="checkbox" id="sf-math" class="submit-form__editable"> Post uses LaTeX math equations
         </label>
       </div>
     </div>
 
-    <!-- Write your post (hidden until file parsed or manual start) -->
-    <div id="submit-form__body-section" class="submit-form__section" hidden>
+    <!-- Summary editor. Visible by default after Continue. -->
+    <div id="submit-form__summary-section" class="submit-form__section">
+      <h3 class="submit-form__section-title">
+        Summary <span class="submit-form__label-note">(optional, but recommended)</span>
+      </h3>
+      <p class="submit-form__help">
+        A short overview shown at the top of your post — typically 2–4 sentences.
+        Skippable, but posts with a summary are far more likely to be read.
+      </p>
+      <textarea id="submit-form__summary-editor"></textarea>
+      <!-- Hidden markdown mirror — kept in sync by submission-editor.js and read
+           by the submission pipeline. -->
+      <textarea id="submit-form__summary-input" hidden></textarea>
+    </div>
+
+    <!-- Body editor. Visible by default after Continue. -->
+    <div id="submit-form__body-section" class="submit-form__section">
       <h3 class="submit-form__section-title">Write your post</h3>
       <p class="submit-form__help">
-        Write your post text below. If you uploaded a template, the body is pre-filled from your file.
-        To embed an image, upload it under the editor and click <strong>Insert</strong> on the thumbnail —
-        a placeholder like <code>[image: figure1.png]</code> drops in at your cursor and becomes a proper
-        image on the published page. Headings (<code>##</code>), lists, and links use standard Markdown.
+        Write or paste your post below — it works like a regular word processor (you don't
+        need to know Markdown). Pasting from Word or Google Docs preserves headings, lists,
+        bold/italic, tables and links. To embed an image, upload it below, type an optional
+        caption, and click <strong>Insert</strong> on the thumbnail — the image appears in
+        the editor at your cursor and renders as a captioned figure on the published page.
       </p>
-      <textarea id="submit-form__body-input"
-                class="submit-form__editable submit-form__body-textarea"
-                placeholder="## Summary&#10;&#10;A one-paragraph overview of your post.&#10;&#10;## Background&#10;&#10;Write here. Click Insert on an uploaded image below to embed it like this: [image: filename.png]."></textarea>
+      <textarea id="submit-form__body-editor"></textarea>
+      <!-- Hidden markdown mirror — kept in sync by submission-editor.js and read
+           by the submission pipeline. -->
+      <textarea id="submit-form__body-input" hidden></textarea>
 
       <!-- Image upload, co-located with the body -->
       <div id="submit-form__images-subsection" class="submit-form__body-images">
         <h4 class="submit-form__subsection-title">Images</h4>
-        <p class="submit-form__help">Upload images you want to embed. Max 10 MB per file, 50 MB total. Use the <strong>Insert</strong> button on each thumbnail to drop a placeholder into the text above.</p>
+        <p class="submit-form__help">Upload images you want to embed. Max 10 MB per file, 50 MB total. Type an optional <strong>caption</strong> next to each thumbnail (shown as the figure legend on the published page), then click <strong>Insert</strong> to drop a placeholder into the text above.</p>
 
         <!-- Existing images carried over from the published post (update mode only) -->
         <div id="submit-form__existing-images-wrap" class="submit-form__existing-images" hidden>
@@ -235,7 +248,7 @@
     </div>
 
     <!-- Submit -->
-    <div id="submit-form__actions" class="submit-form__section" hidden>
+    <div id="submit-form__actions" class="submit-form__section">
       <button type="button" id="submit-form__submit-btn" class="submit-form__btn submit-form__btn--primary submit-form__btn--large" disabled>
         Submit Blog Post
       </button>

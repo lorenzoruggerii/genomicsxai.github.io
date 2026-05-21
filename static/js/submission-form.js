@@ -498,10 +498,14 @@
   // ── ImageHandler ──
   var ImageHandler = {
     files: [],
+    // filename (sanitized) -> caption string. Populated as the user types in the
+    // per-thumb caption input; reset on removeFile/clear.
+    captions: {},
 
     addFiles: function (fileList) {
       var errors = [];
       var totalSize = this.files.reduce(function (sum, f) { return sum + f.size; }, 0);
+      var self = this;
 
       for (var i = 0; i < fileList.length; i++) {
         var f = fileList[i];
@@ -513,6 +517,15 @@
           errors.push(f.name + ' exceeds the 10 MB limit (' + (f.size / 1024 / 1024).toFixed(1) + ' MB).');
           continue;
         }
+        // Dedupe by sanitized filename so clicking "Insert" doesn't double up
+        // the thumbnail (TinyMCE's images_upload_handler can fire on inserted
+        // blob: URLs as if they were new uploads), and so two paste actions
+        // of the same image are coalesced.
+        var sanitized = this.sanitizeName(f.name);
+        var alreadyAdded = this.files.some(function (existing) {
+          return self.sanitizeName(existing.name) === sanitized;
+        });
+        if (alreadyAdded) continue;
         totalSize += f.size;
         if (totalSize > CONFIG.MAX_TOTAL_SIZE) {
           errors.push('Total image size exceeds 50 MB.');
@@ -524,11 +537,14 @@
     },
 
     removeFile: function (index) {
+      var f = this.files[index];
+      if (f) delete this.captions[this.sanitizeName(f.name)];
       this.files.splice(index, 1);
     },
 
     clear: function () {
       this.files = [];
+      this.captions = {};
     },
 
     sanitizeName: function (name) {
@@ -565,6 +581,13 @@
         span.className = 'submit-form__image-name';
         span.textContent = f.name + ' (' + (f.size / 1024).toFixed(0) + ' KB)';
 
+        var captionInput = document.createElement('input');
+        captionInput.type = 'text';
+        captionInput.className = 'submit-form__image-caption';
+        captionInput.placeholder = 'Caption (figure legend, optional)';
+        captionInput.value = self.captions[self.sanitizeName(f.name)] || '';
+        captionInput.dataset.filename = self.sanitizeName(f.name);
+
         var insertBtn = document.createElement('button');
         insertBtn.type = 'button';
         insertBtn.className = 'submit-form__image-insert';
@@ -581,9 +604,15 @@
 
         thumb.appendChild(img);
         thumb.appendChild(span);
+        thumb.appendChild(captionInput);
         thumb.appendChild(insertBtn);
         thumb.appendChild(btn);
         container.appendChild(thumb);
+      });
+      $$('.submit-form__image-caption').forEach(function (input) {
+        input.addEventListener('input', function () {
+          self.captions[input.dataset.filename] = input.value;
+        });
       });
       $$('.submit-form__image-remove').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -594,18 +623,21 @@
       $$('.submit-form__image-insert').forEach(function (btn) {
         btn.addEventListener('click', function () {
           var filename = btn.dataset.filename;
+          if (!filename) return;
+          var caption = (self.captions[filename] || '').trim();
+          if (window.SubmissionEditor && window.SubmissionEditor.body) {
+            window.SubmissionEditor.insertImage(filename, caption);
+            FormController.revalidate();
+            return;
+          }
+          // Fallback: editor failed to load — insert the bracket placeholder
+          // directly into the hidden markdown textarea.
           var ta = $('#submit-form__body-input');
-          if (!ta || !filename) return;
-          var placeholder = '[image: ' + filename + ']';
-          var start = ta.selectionStart || 0;
-          var end = ta.selectionEnd || 0;
-          var before = ta.value.slice(0, start);
-          var after = ta.value.slice(end);
-          var prefix = (before.length === 0 || before.endsWith('\n')) ? '' : '\n';
-          ta.value = before + prefix + placeholder + '\n' + after;
-          var newPos = before.length + prefix.length + placeholder.length + 1;
-          ta.focus();
-          ta.setSelectionRange(newPos, newPos);
+          if (!ta) return;
+          var placeholder = caption
+            ? '[image: ' + filename + ' | ' + caption + ']'
+            : '[image: ' + filename + ']';
+          ta.value = (ta.value || '') + (ta.value && !ta.value.endsWith('\n') ? '\n' : '') + placeholder + '\n';
           FormController.revalidate();
         });
       });
@@ -750,9 +782,13 @@
     },
 
     expandImageKeywords: function (body) {
-      return (body || '').replace(/\[image:\s*([a-z0-9._-]+)\s*\]/gi, function (_m, name) {
+      // Accepts [image: filename.png] or [image: filename.png | Caption text].
+      // The caption (if any) becomes the alt text — Hugo's render-image.html
+      // surfaces it as the figure legend on the published page.
+      return (body || '').replace(/\[image:\s*([a-z0-9._-]+)\s*(?:\|\s*([^\]]*?)\s*)?\]/gi, function (_m, name, caption) {
         var clean = name.toLowerCase();
-        return '![' + clean + '](' + clean + ')';
+        var alt = (caption || '').trim() || clean;
+        return '![' + alt.replace(/\]/g, '\\]') + '](' + clean + ')';
       });
     },
   };
@@ -942,6 +978,9 @@
       if (!isUpdate) {
         UpdateMode.reset();
         this.revealPostModeBody();
+        // Show the full form by default so users can fill it in manually
+        // without first uploading an index.md. Uploading just pre-fills.
+        this.startBlank();
         return;
       }
 
@@ -970,8 +1009,7 @@
             rawYaml: '',
           };
           this.populateFields(UpdateMode.existingFrontmatter || {});
-          var bodyInput = $('#submit-form__body-input');
-          if (bodyInput) bodyInput.value = UpdateMode.existingBody || '';
+          this.setBody(UpdateMode.existingBody || '');
           this.renderExistingImages();
           show($('#submit-form__fields'));
           show($('#submit-form__body-section'));
@@ -1034,6 +1072,11 @@
         span.className = 'submit-form__image-name';
         span.textContent = f.name;
 
+        var captionInput = document.createElement('input');
+        captionInput.type = 'text';
+        captionInput.className = 'submit-form__image-caption';
+        captionInput.placeholder = 'Caption (figure legend, optional)';
+
         var insertBtn = document.createElement('button');
         insertBtn.type = 'button';
         insertBtn.className = 'submit-form__image-insert';
@@ -1041,18 +1084,19 @@
         insertBtn.title = 'Insert at cursor in body';
         insertBtn.textContent = 'Insert';
         insertBtn.addEventListener('click', function () {
+          var filename = f.name.toLowerCase();
+          var caption = (captionInput.value || '').trim();
+          if (window.SubmissionEditor && window.SubmissionEditor.body) {
+            window.SubmissionEditor.insertImage(filename, caption);
+            FormController.revalidate();
+            return;
+          }
           var ta = $('#submit-form__body-input');
           if (!ta) return;
-          var placeholder = '[image: ' + f.name.toLowerCase() + ']';
-          var start = ta.selectionStart || 0;
-          var end = ta.selectionEnd || 0;
-          var before = ta.value.slice(0, start);
-          var after = ta.value.slice(end);
-          var prefix = (before.length === 0 || before.endsWith('\n')) ? '' : '\n';
-          ta.value = before + prefix + placeholder + '\n' + after;
-          var newPos = before.length + prefix.length + placeholder.length + 1;
-          ta.focus();
-          ta.setSelectionRange(newPos, newPos);
+          var placeholder = caption
+            ? '[image: ' + filename + ' | ' + caption + ']'
+            : '[image: ' + filename + ']';
+          ta.value = (ta.value || '') + (ta.value && !ta.value.endsWith('\n') ? '\n' : '') + placeholder + '\n';
           FormController.revalidate();
         });
 
@@ -1071,6 +1115,7 @@
 
         thumb.appendChild(img);
         thumb.appendChild(span);
+        thumb.appendChild(captionInput);
         thumb.appendChild(insertBtn);
         thumb.appendChild(keepBtn);
         container.appendChild(thumb);
@@ -1188,8 +1233,7 @@
         }
         self.parsed = result;
         self.populateFields(result.frontmatter);
-        var bodyInput = $('#submit-form__body-input');
-        if (bodyInput) bodyInput.value = result.body || '';
+        self.setBody(result.body || '');
         self.revalidate();
         show($('#submit-form__fields'));
         show($('#submit-form__body-section'));
@@ -1205,13 +1249,27 @@
     startBlank: function () {
       this.parsed = { frontmatter: {}, body: '', rawYaml: '' };
       this.populateFields({});
-      var bodyInput = $('#submit-form__body-input');
-      if (bodyInput) bodyInput.value = '';
+      this.setBody('');
       show($('#submit-form__fields'));
       show($('#submit-form__body-section'));
       show($('#submit-form__actions'));
       hide($('#submit-form__parse-error'));
       this.revalidate();
+    },
+
+    // Single entry point for "load a markdown blob into the writing area."
+    // Routes through SubmissionEditor (which splits {{< summary >}} and loads
+    // both editors); falls back to writing the hidden textareas directly if
+    // the editor module didn't load.
+    setBody: function (md) {
+      if (window.SubmissionEditor && (window.SubmissionEditor.body || window.SubmissionEditor.summary)) {
+        window.SubmissionEditor.setMarkdown(md || '');
+        return;
+      }
+      var bodyInput = $('#submit-form__body-input');
+      if (bodyInput) bodyInput.value = md || '';
+      var summaryInput = $('#submit-form__summary-input');
+      if (summaryInput) summaryInput.value = '';
     },
 
     onFileSelected: function (e) {
@@ -1242,7 +1300,6 @@
       setVal('sf-tags', Array.isArray(fm.tags) ? fm.tags.join(', ') : (fm.tags || ''));
       setVal('sf-labs', Array.isArray(fm.labs) ? fm.labs.join(', ') : (fm.labs || ''));
       setVal('sf-date', fm.date || fm.date_submitted || today());
-      setVal('sf-doi', fm.doi);
 
       // Authors
       var authorsContainer = $('#sf-authors-list');
@@ -1367,7 +1424,7 @@
 
       fm.date = ($('#sf-date') || {}).value || today();
       fm.date_submitted = fm.date_submitted || today();
-      fm.doi = ($('#sf-doi') || {}).value || '';
+      // DOI is assigned by Zenodo on publication, not set by the author.
       fm.math = ($('#sf-math') || {}).checked || false;
 
       // Auto-set fields
@@ -1471,8 +1528,21 @@
           if (!found) fm.image = '';
         }
 
-        var bodyInput = $('#submit-form__body-input');
-        var rawBody = bodyInput ? (bodyInput.value || '') : (this.parsed ? this.parsed.body : '');
+        // Pull markdown from the editor — it already prepends the summary as
+        // a {{< summary >}} shortcode when one is present. Falls back to the
+        // hidden textareas if the editor module failed to load.
+        var rawBody;
+        if (window.SubmissionEditor && typeof window.SubmissionEditor.getMarkdown === 'function') {
+          rawBody = window.SubmissionEditor.getMarkdown();
+        } else {
+          var bodyInput = $('#submit-form__body-input');
+          var summaryInput = $('#submit-form__summary-input');
+          var rawBodyOnly = bodyInput ? (bodyInput.value || '') : (this.parsed ? this.parsed.body : '');
+          var rawSummary = summaryInput ? (summaryInput.value || '').trim() : '';
+          rawBody = rawSummary
+            ? '{{< summary >}}\n\n' + rawSummary + '\n\n{{< /summary >}}\n\n' + rawBodyOnly
+            : rawBodyOnly;
+        }
         var body = MarkdownGen.expandImageKeywords(rawBody);
         var mdContent = MarkdownGen.generate(fm, body);
         var branchName = UpdateMode.active
@@ -1662,5 +1732,15 @@
     }
 
     FormController.init();
+
+    // Expose internals so submission-editor.js (loaded alongside) can resolve
+    // image sources and route pasted Word images into ImageHandler. No load
+    // order coupling beyond "both scripts run by DOMContentLoaded".
+    window.__submitForm = {
+      ImageHandler: ImageHandler,
+      UpdateMode: UpdateMode,
+      CONFIG: CONFIG,
+      FormController: FormController,
+    };
   });
 })();
