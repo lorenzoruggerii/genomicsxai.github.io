@@ -4,7 +4,7 @@ title: "Fine-tuning AlphaGenome in native JAX/Haiku"
 image: "alphagenome_ft.png"
 math: false
 
-authors: ["Alan Murphy", "Masayuki Nagai", "Alejandro Buendia", "Anshul Kundaje", "Peter Koo"]
+authors: ["Alan Murphy", "Masayuki Nagai", "Alejandro Buendia", "Anshul Kundaje", "Peter K. Koo"]
 
 authors_display:
   - name: "Alan Murphy"
@@ -23,7 +23,7 @@ authors_display:
     affiliation: "Stanford University"
     orcid: "0000-0003-3084-2287"
 
-  - name: "Peter Koo"
+  - name: "Peter K. Koo"
     affiliation: "Cold Spring Harbor Labs (CSHL)"
     orcid: "0000-0001-8722-0038"
 
