@@ -1,0 +1,274 @@
+<div id="submit-form" class="submit-form">
+
+  <!-- Template / start -->
+  <div class="submit-form__section submit-form__template-card">
+    <strong>Prepare your post</strong>
+    <p>Two ways to start. Either way, you'll review frontmatter, edit your post text, and add images in the form below before submitting.</p>
+    <div class="submit-form__template-actions">
+      <a href="/blog-post-template.md" download="blog-post-template.md" class="submit-form__btn submit-form__btn--secondary">Download blog post template</a>
+      <button type="button" id="submit-form__start-blank-btn" class="submit-form__btn submit-form__btn--secondary">Fill in the form manually</button>
+    </div>
+    <p class="submit-form__help">
+      Downloading the template lets you draft offline and pre-fill the fields by uploading <code>index.md</code> below.
+      Filling in the form manually opens the same fields blank so you can write directly here.
+    </p>
+  </div>
+
+  <!-- Auth -->
+  <div class="submit-form__section">
+    <div id="submit-form__auth-login">
+      <p>Sign in with your GitHub account to submit a post.</p>
+      <button type="button" id="submit-form__login-btn" class="submit-form__btn submit-form__btn--primary">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" style="vertical-align: middle; margin-right: 6px;"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
+        Sign in with GitHub
+      </button>
+    </div>
+    <div id="submit-form__auth-pending" class="submit-form__device-flow" hidden>
+      <p class="submit-form__device-intro">To finish signing in, open GitHub and enter the code below.</p>
+      <ol class="submit-form__device-steps">
+        <li>Open <a id="submit-form__device-link" href="https://github.com/login/device" target="_blank" rel="noopener">https://github.com/login/device</a> in a new tab.</li>
+        <li>Enter this code (we copied it to your clipboard):</li>
+      </ol>
+      <div class="submit-form__device-code">
+        <code id="submit-form__device-code-display" class="submit-form__device-code-value">…</code>
+        <button type="button" id="submit-form__device-code-copy" class="submit-form__btn submit-form__btn--secondary submit-form__btn--small">Copy</button>
+      </div>
+      <p class="submit-form__device-status" id="submit-form__device-status">Waiting for you to authorize on GitHub…</p>
+      <button type="button" id="submit-form__device-cancel" class="submit-form__btn submit-form__btn--link">Cancel</button>
+    </div>
+    <div id="submit-form__auth-user" hidden>
+      <span>Signed in as <strong id="submit-form__username"></strong></span>
+      <button type="button" id="submit-form__logout-btn" class="submit-form__btn submit-form__btn--link">Sign out</button>
+    </div>
+  </div>
+
+  <!-- Form body (hidden until authenticated) -->
+  <div id="submit-form__body" hidden>
+
+    <!-- Mode chooser: new submission vs update an existing post -->
+    <div id="submit-form__mode-chooser" class="submit-form__section submit-form__mode-chooser">
+      <h3 class="submit-form__section-title">What are you submitting?</h3>
+      <div class="submit-form__radio-group">
+        <div class="submit-form__radio-item">
+          <label class="submit-form__radio">
+            <input type="radio" name="sf-mode" value="new" id="sf-mode-new" checked>
+            <span>Submit a new post</span>
+          </label>
+        </div>
+        <div class="submit-form__radio-item">
+          <label class="submit-form__radio">
+            <input type="radio" name="sf-mode" value="update" id="sf-mode-update">
+            <span class="submit-form__radio-label">
+              Update one of my previous posts
+              <span class="submit-form__radio-note">For posts you previously published under this GitHub account.</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div id="submit-form__update-options" class="submit-form__update-options" hidden>
+        <div class="submit-form__field">
+          <label class="submit-form__label submit-form__label--required" for="sf-update-post">Which post?</label>
+          <select id="sf-update-post" class="submit-form__input">
+            <option value="">Loading your posts…</option>
+          </select>
+          <span class="submit-form__help" id="sf-update-post-help">Only posts you originally submitted appear here.</span>
+        </div>
+
+        <div class="submit-form__field">
+          <label class="submit-form__label submit-form__label--required">Start from</label>
+          <div class="submit-form__radio-group">
+            <label class="submit-form__radio">
+              <input type="radio" name="sf-update-start" value="prefill" id="sf-update-start-prefill" checked>
+              <span>Pre-fill from the published version (recommended)</span>
+            </label>
+            <label class="submit-form__radio">
+              <input type="radio" name="sf-update-start" value="blank" id="sf-update-start-blank">
+              <span>Start blank — I'll upload or re-write from scratch</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="submit-form__field">
+          <label class="submit-form__label submit-form__label--required" for="sf-update-notes">Revision notes</label>
+          <input type="text" id="sf-update-notes" class="submit-form__input" placeholder="One line describing this revision (e.g. 'Fix typos in methods section')">
+          <span class="submit-form__help">Recorded in <code>revision_history</code>.</span>
+        </div>
+      </div>
+
+      <div class="submit-form__mode-actions">
+        <button type="button" id="submit-form__mode-continue" class="submit-form__btn submit-form__btn--primary" disabled>Continue</button>
+      </div>
+      <div id="submit-form__mode-error" class="submit-form__field-error" hidden></div>
+    </div>
+
+    <!-- The rest of the form is revealed only after Continue. -->
+    <div id="submit-form__post-mode-body" hidden>
+
+    <!-- Banner for update mode -->
+    <div id="submit-form__update-banner" class="submit-form__update-banner" hidden></div>
+
+    <!-- Upload index.md -->
+    <div class="submit-form__section">
+      <h3 class="submit-form__section-title">Upload your index.md</h3>
+      <div id="submit-form__drop-zone" class="submit-form__drop-zone">
+        <p>Drag &amp; drop your <code>index.md</code> file here, or click to browse</p>
+        <input type="file" id="submit-form__file-input" accept=".md" hidden>
+      </div>
+      <div id="submit-form__file-name" class="submit-form__file-name" hidden></div>
+      <div id="submit-form__parse-error" class="submit-form__field-error" hidden></div>
+    </div>
+
+    <!-- Frontmatter fields. Visible by default once the user clicks Continue —
+         uploading an index.md just pre-fills these. -->
+    <div id="submit-form__fields" class="submit-form__section">
+      <h3 class="submit-form__section-title">Review frontmatter</h3>
+      <p class="submit-form__help">Edit fields below. If you uploaded a template, they're pre-filled from your file; otherwise fill them in directly. Fix any errors before submitting.</p>
+
+      <div class="submit-form__field">
+        <label class="submit-form__label submit-form__label--required" for="sf-title">Title</label>
+        <input type="text" id="sf-title" class="submit-form__input submit-form__editable">
+        <div id="sf-error-title" class="submit-form__field-error" hidden></div>
+      </div>
+
+      <div class="submit-form__field">
+        <label class="submit-form__label submit-form__label--required">Authors</label>
+        <div id="sf-authors-list"></div>
+        <button type="button" id="sf-add-author" class="submit-form__btn submit-form__btn--secondary submit-form__btn--small">+ Add author</button>
+        <div id="sf-error-authors" class="submit-form__field-error" hidden></div>
+      </div>
+
+      <div class="submit-form__field">
+        <label class="submit-form__label submit-form__label--required" for="sf-tags">Tags</label>
+        <input type="text" id="sf-tags" class="submit-form__input submit-form__editable" placeholder="genomics, AI, single-cell">
+        <span class="submit-form__help">Comma-separated. Common tags: <code>genomics</code>, <code>deep-learning</code>, <code>fine-tuning</code>, <code>foundation-models</code>, <code>RNA-seq</code>, <code>scRNA-seq</code>, <code>ATAC-seq</code>, <code>regulatory-genomics</code>, <code>interpretability</code>, <code>benchmarking</code>, <code>AlphaGenome</code>, <code>PyTorch</code>, <code>JAX</code>.</span>
+        <div id="sf-error-tags" class="submit-form__field-error" hidden></div>
+      </div>
+
+      <div class="submit-form__field">
+        <label class="submit-form__label submit-form__label--required">Scope</label>
+        <div class="submit-form__checkbox-group">
+          <label class="submit-form__checkbox"><input type="checkbox" id="sf-scope-protocols" class="submit-form__editable"> protocols</label>
+          <label class="submit-form__checkbox"><input type="checkbox" id="sf-scope-tutorials" class="submit-form__editable"> tutorials</label>
+          <label class="submit-form__checkbox"><input type="checkbox" id="sf-scope-negative-results" class="submit-form__editable"> negative-results</label>
+          <label class="submit-form__checkbox"><input type="checkbox" id="sf-scope-discussions" class="submit-form__editable"> discussions</label>
+          <label class="submit-form__checkbox"><input type="checkbox" id="sf-scope-insights" class="submit-form__editable"> insights</label>
+          <label class="submit-form__checkbox"><input type="checkbox" id="sf-scope-ideas" class="submit-form__editable"> ideas</label>
+        </div>
+        <div id="sf-error-scope" class="submit-form__field-error" hidden></div>
+      </div>
+
+      <div class="submit-form__field">
+        <label class="submit-form__label">Audience</label>
+        <div class="submit-form__checkbox-group">
+          <label class="submit-form__checkbox"><input type="checkbox" id="sf-audience-within-field" class="submit-form__editable"> within-field</label>
+          <label class="submit-form__checkbox"><input type="checkbox" id="sf-audience-general" class="submit-form__editable"> general</label>
+          <label class="submit-form__checkbox"><input type="checkbox" id="sf-audience-intro-to-field" class="submit-form__editable"> intro-to-field</label>
+        </div>
+        <div id="sf-error-audience" class="submit-form__field-error" hidden></div>
+      </div>
+
+      <div class="submit-form__field">
+        <label class="submit-form__label submit-form__label--required">Discipline</label>
+        <span class="submit-form__help">At least one required — promotes your post under the homepage Discipline filter.</span>
+        <div class="submit-form__checkbox-group">
+          {{- range $.Site.Data.disciplines }}
+          <label class="submit-form__checkbox"><input type="checkbox" class="submit-form__editable submit-form__discipline" data-slug="{{ .slug }}" id="sf-discipline-{{ .slug }}"> {{ .label }}</label>
+          {{- end }}
+        </div>
+        <div id="sf-error-discipline" class="submit-form__field-error" hidden></div>
+      </div>
+
+      <div class="submit-form__field">
+        <label class="submit-form__label submit-form__label--required" for="sf-labs">Lab</label>
+        <input type="text" id="sf-labs" class="submit-form__input submit-form__editable" placeholder="Your Lab Name">
+        <div id="sf-error-labs" class="submit-form__field-error" hidden></div>
+      </div>
+
+      <div class="submit-form__field">
+        <label class="submit-form__label" for="sf-date">Date</label>
+        <input type="date" id="sf-date" class="submit-form__input" readonly>
+      </div>
+
+      <div class="submit-form__field">
+        <label class="submit-form__checkbox">
+          <input type="checkbox" id="sf-math" class="submit-form__editable"> Post uses LaTeX math equations
+        </label>
+      </div>
+    </div>
+
+    <!-- Summary editor. Visible by default after Continue. -->
+    <div id="submit-form__summary-section" class="submit-form__section">
+      <h3 class="submit-form__section-title">
+        Summary <span class="submit-form__label-note">(optional, but recommended)</span>
+      </h3>
+      <p class="submit-form__help">
+        A short overview shown at the top of your post — typically 2–4 sentences.
+        Skippable, but posts with a summary are far more likely to be read.
+      </p>
+      <textarea id="submit-form__summary-editor"></textarea>
+      <!-- Hidden markdown mirror — kept in sync by submission-editor.js and read
+           by the submission pipeline. -->
+      <textarea id="submit-form__summary-input" hidden></textarea>
+    </div>
+
+    <!-- Body editor. Visible by default after Continue. -->
+    <div id="submit-form__body-section" class="submit-form__section">
+      <h3 class="submit-form__section-title">Write your post</h3>
+      <p class="submit-form__help">
+        Write or paste your post below — it works like a regular word processor (you don't
+        need to know Markdown). Pasting from Word or Google Docs preserves headings, lists,
+        bold/italic, tables and links. To embed an image, upload it below, type an optional
+        caption, and click <strong>Insert</strong> on the thumbnail — the image appears in
+        the editor at your cursor and renders as a captioned figure on the published page.
+      </p>
+      <textarea id="submit-form__body-editor"></textarea>
+      <!-- Hidden markdown mirror — kept in sync by submission-editor.js and read
+           by the submission pipeline. -->
+      <textarea id="submit-form__body-input" hidden></textarea>
+
+      <!-- Image upload, co-located with the body -->
+      <div id="submit-form__images-subsection" class="submit-form__body-images">
+        <h4 class="submit-form__subsection-title">Images</h4>
+        <p class="submit-form__help">Upload images you want to embed. Max 10 MB per file, 50 MB total. Type an optional <strong>caption</strong> next to each thumbnail (shown as the figure legend on the published page), then click <strong>Insert</strong> to drop a placeholder into the text above.</p>
+
+        <!-- Existing images carried over from the published post (update mode only) -->
+        <div id="submit-form__existing-images-wrap" class="submit-form__existing-images" hidden>
+          <h5 class="submit-form__subsubsection-title">Existing images (from published version)</h5>
+          <p class="submit-form__help">These ship with the current post. Untick any you want to remove from the updated version.</p>
+          <div id="submit-form__existing-images" class="submit-form__image-previews"></div>
+        </div>
+
+        <div id="submit-form__img-drop-zone" class="submit-form__drop-zone">
+          <p>Drag &amp; drop images here, or click to browse</p>
+          <input type="file" id="submit-form__img-input" accept="image/*" multiple hidden>
+        </div>
+        <div id="submit-form__image-previews" class="submit-form__image-previews"></div>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <div id="submit-form__actions" class="submit-form__section">
+      <button type="button" id="submit-form__submit-btn" class="submit-form__btn submit-form__btn--primary submit-form__btn--large" disabled>
+        Submit Blog Post
+      </button>
+    </div>
+
+    <!-- Progress -->
+    <div id="submit-form__progress" class="submit-form__section" hidden></div>
+
+    </div><!-- /#submit-form__post-mode-body -->
+  </div><!-- /#submit-form__body -->
+
+  <!-- Error / Success messages live OUTSIDE submit-form__body so they
+       remain visible during auth too (when the body is hidden). -->
+  <div id="submit-form__error" class="submit-form__message submit-form__message--error" hidden></div>
+  <div id="submit-form__form-error" class="submit-form__message submit-form__message--error" hidden></div>
+  <div id="submit-form__success" class="submit-form__message submit-form__message--success" hidden></div>
+
+  <script type="application/json" id="submit-form__disciplines-data">
+{{- $slugs := slice -}}
+{{- range $.Site.Data.disciplines }}{{ $slugs = $slugs | append .slug }}{{ end -}}
+{{ $slugs | jsonify }}
+  </script>
+</div>

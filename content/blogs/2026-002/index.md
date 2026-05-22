@@ -7,7 +7,8 @@ image: "modular_generalists_manuscript.png"
 math: true
 
 # Author(s): list of names (used for /authors/<slug>/)
-authors: ["Alan Murphy", "Peter K. Koo"]
+authors: ["Alan Murphy", "Alejandra Durán", "Peter K. Koo"]
+
 
 # Optional: full details for citation and JSON-LD
 authors_display:
@@ -32,18 +33,21 @@ scope: ["insights"]
 audience: ["general"]
 labs: ["Koo lab"]
 
-status: "submitted"
+status: "accepted"
 revision: 1
 
 date_submitted: 2026-02-20
-date_accepted:
+date_accepted: 2026-02-20
 date: 2026-02-20
 
 doi: ""
+zenodo_url: ""
 revision_history:
   - version: 1
     date: 2026-02-20
     notes: "Initial submission"
+    doi: ""
+    zenodo_url: ""
 ---
 
 {{< summary >}}

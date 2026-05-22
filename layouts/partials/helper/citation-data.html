@@ -1,0 +1,39 @@
+{{- $page := . -}}
+{{- $zenodoStore := hugo.Data.zenodo | default dict -}}
+{{- $zenodoEntry := dict -}}
+{{- with $page.Params.post_id -}}
+  {{- with index $zenodoStore . -}}
+    {{- $zenodoEntry = . -}}
+  {{- end -}}
+{{- end -}}
+{{- $authList := $page.Params.authors_display | default $page.Params.authors -}}
+{{- $authorNames := slice -}}
+{{- with $authList -}}
+  {{- range . -}}
+    {{- $authorNames = $authorNames | append (cond (reflect.IsMap .) .name .) -}}
+  {{- end -}}
+{{- end -}}
+{{- $authorStr := delimit $authorNames ", " -}}
+{{- $blogName := $page.Params.blog_name | default (site.Data.blog.blog_name | default "Genomics × AI Blog") -}}
+{{- $year := $page.Date | dateFormat "2006" -}}
+{{- $fullDate := $page.Date | dateFormat "2 January 2006" -}}
+{{- $dateISO := $page.Date | dateFormat "2006-01-02" -}}
+{{- $citeURL := $page.Permalink | absURL -}}
+{{- $doi := $zenodoEntry.current_doi | default ($page.Params.doi | default "") -}}
+{{- $citationPlain := printf "%s. \"%s.\" %s, %s. %s" $authorStr $page.Title $blogName $fullDate $citeURL -}}
+{{- if $doi -}}
+  {{- $citationPlain = printf "%s. https://doi.org/%s" $citationPlain $doi -}}
+{{- end -}}
+{{- return (dict
+  "citation" $citationPlain
+  "title" $page.Title
+  "authors" $authorNames
+  "year" $year
+  "fullDate" $fullDate
+  "dateIso" $dateISO
+  "doi" $doi
+  "postId" ($page.Params.post_id | default "")
+  "url" $page.Permalink
+  "blogName" $blogName
+  "zenodoUrl" ($zenodoEntry.current_zenodo_url | default ($page.Params.zenodo_url | default ""))
+) -}}

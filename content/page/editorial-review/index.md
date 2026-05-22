@@ -45,6 +45,7 @@ Ensure posts are **accurate, readable, appropriately tagged, and safe to publish
 ### D. Metadata and tagging
 
 * **`tags`** are relevant and consistent with the post
+* **At least one discipline tag** is present (`seq2func`, `context-seq2func`, `single-cell`, `synthetic-biology`, `interpretability`, `multi-omics`, or `experimental-design`) so the post surfaces under the homepage Discipline filter
 * **`categories`** and **`scope`** reflect the piece
 * Title accurately reflects content
 
@@ -61,6 +62,37 @@ Ensure posts are **accurate, readable, appropriately tagged, and safe to publish
 * Figures render correctly
 * Links work
 * Code blocks properly formatted
+
+### G. Security: posts can run code in a reader's browser
+
+Hugo on this site is configured with `unsafe = true` in `config.toml`, so raw HTML inside a Markdown file is passed through to the published page. The blog is served from the same origin as the submission form, and the submission form stores the author's GitHub OAuth token in `sessionStorage` (key: `gh_token`) — not in an HttpOnly cookie. **A malicious script inside a published post can read that token from any signed-in visitor's browser** and use it to fork, commit, and open PRs in their name. It can also stage CSRF-style state changes against GitHub on the signed-in reader's behalf.
+
+Treat any of the following in a submitted `index.md` as a hard-fail unless the author has a genuine, narrow reason and you've sanity-checked it line by line:
+
+* `<script>` tags (any variant, including `type="module"`, `type="text/javascript"`, async/defer, etc.)
+* Inline event handlers — anything matching `on*=` (`onerror`, `onload`, `onclick`, `onmouseover`, `onfocus`, `onpointerdown`, …)
+* `javascript:` URIs in `href`, `src`, `action`, or any other URL attribute
+* `data:text/html`, `data:application/javascript`, or other executable `data:` URIs
+* `<iframe>`, `<frame>`, `<object>`, `<embed>`, `<applet>`, `<portal>`
+* `<svg>` elements containing `<script>`, `<foreignObject>`, or event handlers
+* `<meta http-equiv="refresh">` (used for auto-redirects/phishing) or `<meta http-equiv="content-security-policy">` (could weaken site CSP)
+* `<link rel="import">`, `<link rel="preload" as="script">`, or `<link>` pointing at unfamiliar origins
+* `<style>` containing `expression(...)`, `@import`, or `url(javascript:...)`
+* `<form>` elements that POST anywhere other than this site — credential-phishing risk
+* KaTeX `\href{javascript:...}` and similar protocol-handler tricks inside math blocks
+* Base64- or hex-obfuscated blobs in attributes whose decoded content you can't read at a glance
+* Outbound `target="_blank"` links missing `rel="noopener"` — tabnabbing risk
+* Visible HTML that imitates the site's "Sign in with GitHub" button or any other auth prompt — clickjacking / fake-login risk
+
+**Pre-merge grep on the PR diff** (run at the repo root after checking out the PR branch):
+
+```bash
+grep -nEi '<script|<iframe|<object|<embed|<applet|<portal|on[a-z]+=|javascript:|data:text/html|data:application/javascript|<meta[[:space:]]+http-equiv|<form|<link[[:space:]]+rel="import"|expression\(|@import' content/blogs/YYYY-NNN/
+```
+
+False positives are usually obvious (the word `onclick` inside a fenced code block discussing event handlers, the string `<script>` inside a quoted example). If a match is genuine raw HTML the author intended to publish, ask them to either remove it or convert it to a fenced code block (` ``` `) so it renders as text, not as live HTML. **When in doubt, reject.**
+
+Until the site moves the OAuth token to an HttpOnly cookie or adopts a strict CSP, this check is the only thing standing between a malicious submission and every signed-in reader's GitHub account.
 
 ---
 
@@ -113,8 +145,10 @@ Editors choose one:
 * [ ] No obvious technical errors
 * [ ] No plagiarism / slander
 * [ ] Tags, scope, and audience correctly applied
+* [ ] **At least one discipline tag** present (see [§1D](#d-metadata-and-tagging))
 * [ ] Readable and logically structured
 * [ ] Executive summary present in the summary shortcode (or added by editor)
+* [ ] No raw HTML/JS that could execute in a reader's browser — ran the §1.G grep and reviewed any matches
 
 ### Should pass (soft requirements)
 

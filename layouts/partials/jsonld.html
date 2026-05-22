@@ -1,4 +1,12 @@
 <script type="application/ld+json">
+{{- $zenodoStore := hugo.Data.zenodo | default dict -}}
+{{- $zenodoEntry := dict -}}
+{{- with .Params.post_id -}}
+  {{- with index $zenodoStore . -}}
+    {{- $zenodoEntry = . -}}
+  {{- end -}}
+{{- end -}}
+{{- $doi := $zenodoEntry.current_doi | default (.Params.doi | default "") -}}
 {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
@@ -28,7 +36,7 @@
     "name": "Genomics × AI Blog",
     "url": "https://genomicsxai.github.io"
   },
-  {{ with .Params.doi }}
+  {{ with $doi }}
   "identifier": "https://doi.org/{{ . }}",
   {{ end }}
   "keywords": [
@@ -40,4 +48,3 @@
   "url": "{{ .Permalink }}"
 }
 </script>
-

@@ -8,6 +8,44 @@
 <script data-goatcounter="https://{{ .Site.Params.goatCounterCode }}.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>
 {{- end -}}
+{{/* Submission form: load js-yaml (self-hosted) and form script only on submission-guidelines page.
+     js-yaml is self-hosted under static/js/js-yaml.min.js (pinned to v4.1.0) so a CDN
+     compromise cannot exfiltrate the OAuth token kept in sessionStorage. */}}
+{{- if eq .RelPermalink "/submission-guidelines/" -}}
+<script src="{{ "js/js-yaml.min.js" | relURL }}" defer></script>
+{{/* WYSIWYG editor stack for the submission form.
+     SECURITY: OAuth tokens live in sessionStorage on this page, so a hostile
+     JS file loaded here could exfiltrate them. We mitigate by pinning each
+     CDN file with an SRI hash + crossorigin="anonymous" — the browser
+     refuses to run a script whose bytes don't match the integrity hash.
+
+     CAVEAT — TinyMCE only:
+     The TinyMCE bootstrap pinned below loads its theme/model/plugins/skin
+     at runtime via dynamic <script> tags that do NOT carry SRI. If a future
+     jsDelivr compromise served malicious theme.min.js (or any other support
+     file under /tinymce@7.6.0/), the bootstrap would still execute it. The
+     only way to fully close that gap is to vendor TinyMCE under static/.
+     Turndown + Marked are single-file libraries; their SRI fully protects
+     them.
+
+     Hashes computed against npm-published bytes (TinyMCE 7.6.0,
+     Turndown 7.2.0, Marked 13.0.3). Update both `src` version and
+     `integrity` together. */}}
+<script src="https://cdn.jsdelivr.net/npm/tinymce@7.6.0/tinymce.min.js"
+        integrity="sha384-tra1rGs8OanGKq1dD4jTW195QKiytSZz7fE5gSASuwkxuhlG+KjvAVlyHOB2Mlva"
+        crossorigin="anonymous"
+        referrerpolicy="origin" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/turndown@7.2.0/dist/turndown.js"
+        integrity="sha384-OGauEFaI5hnS8jXK4qdSGShAUAObMBKoLXgcL1ORhRh7ulx5jPZH35qVpacIEA4Z"
+        crossorigin="anonymous"
+        defer></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@13.0.3/marked.min.js"
+        integrity="sha384-YTBHtsL8yVTHcLakYNyrOfK3K+QQcXiECuaALJ+3j7Mo681Rtzadt8NR6WrZH+eQ"
+        crossorigin="anonymous"
+        defer></script>
+<script src="{{ "js/submission-form.js" | relURL }}" defer></script>
+<script src="{{ "js/submission-editor.js" | relURL }}" defer></script>
+{{- end -}}
 {{/* Preview builds: block search engine indexing */}}
 {{- if site.Params.previewMode -}}
 <meta name="robots" content="noindex,nofollow">

@@ -1,0 +1,1 @@
+../docs/blog-post-template.md

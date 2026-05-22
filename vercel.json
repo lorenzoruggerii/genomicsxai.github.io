@@ -1,0 +1,12 @@
+{
+  "buildCommand": "",
+  "outputDirectory": "",
+  "framework": null,
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "feature/device-flow-auth": true
+    }
+  },
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- api/ vercel.json"
+}

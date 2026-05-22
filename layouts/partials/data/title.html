@@ -1,0 +1,15 @@
+{{- $pageTitle := .Title -}}
+{{- $siteTitle := .Site.Title -}}
+
+{{- $title := slice -}}
+
+{{- if not .IsHome -}}
+  {{- $paginator := partial "helper/paginator.html" . -}}
+  {{- if and $paginator $paginator.HasPrev -}}
+    {{ $title = $title | append (printf "Page %d" $paginator.PageNumber) }}
+  {{- end -}}
+{{- end -}}
+
+{{- $title = $title | append (default $siteTitle $pageTitle) -}}
+
+{{ return delimit $title " - " }}

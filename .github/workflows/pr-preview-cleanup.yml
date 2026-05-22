@@ -4,6 +4,10 @@ on:
   pull_request_target:
     types: [closed]
 
+concurrency:
+  group: pr-preview-${{ github.event.number }}
+  cancel-in-progress: false
+
 jobs:
   cleanup:
     runs-on: ubuntu-latest
@@ -16,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: gh-pages
-          token: ${{ secrets.GH_PAGES_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Delete preview directory
         run: |
@@ -34,6 +38,8 @@ jobs:
 
       - name: Update PR comment
         uses: marocchino/sticky-pull-request-comment@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           header: preview-deployment
           message: |

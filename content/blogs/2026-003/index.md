@@ -36,18 +36,21 @@ scope: ["tutorials"]
 audience: ["general"]
 labs: ["Koo lab","Kundaje lab"]
 
-status: "submitted"
+status: "accepted"
 revision: 1
 
 date_submitted: 2026-02-25
-date_accepted:
+date_accepted: 2026-02-25
 date: 2026-02-25
 
 doi: ""
+zenodo_url: ""
 revision_history:
   - version: 1
     date: 2026-02-25
     notes: "Initial submission"
+    doi: ""
+    zenodo_url: ""
 ---
 
 {{< summary >}}
@@ -288,8 +291,10 @@ AlphaGenome can now be adapted as easily as modern vision and language foundatio
 
 ## Compute requirements
 
-* Fine-tuning with a frozen backbone typically fits on a single, high VRAM GPU (e.g., H100).
-* Full-model fine-tuning or large batch training will essentially require multi-GPU or TPU setups.
+A full analysis of the runtime requirements for fine-tuning AlphaGenome is [highlighted in separate blog post](https://genomicsxai.github.io/blogs/2026-005/) but in short:
+
+* Fine-tuning with a frozen backbone, i.e. head-only fine-tuning will fit on a single, middle of the range GPU, maxing out at around 14-27 GB vram (batch size 1).
+* For full Fine-tuning, you will need at least 76.1 GB vram, so a H100/H200 GPU.
 
 ---
 
@@ -297,6 +302,7 @@ AlphaGenome can now be adapted as easily as modern vision and language foundatio
 
 * [Source code & utilities](https://github.com/genomicsxai/alphagenome_ft)
 * Colab notebooks: [Encoder Fine-tuning (MPRA)](https://colab.research.google.com/github/genomicsxai/alphagenome_ft/blob/main/notebooks/finetune_encoder_only_mpra.ipynb) | [Heads-only Fine-tuning](https://colab.research.google.com/github/genomicsxai/alphagenome_ft/blob/main/notebooks/finetune_rna_head_only.ipynb)
+* [Benchmarking AlphaGenome on NVIDIA GPUs: latency, memory, and feasibility across sequence lengths](https://genomicsxai.github.io/blogs/2026-005/)
 
 ---
 

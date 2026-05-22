@@ -4,16 +4,18 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
-    # Run manually to e.g. create discussions for existing posts, then deploy
+    paths-ignore:
+      - 'data/zenodo.json'
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pages: write
-      id-token: write
       discussions: write
     environment:
       name: github-pages
@@ -33,7 +35,7 @@ jobs:
       # 2.4. Ensure a GitHub Discussion exists for each blog post (for Giscus likes/comments)
       - name: Ensure blog discussions
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           chmod +x .github/scripts/ensure-blog-discussions.sh
           ./.github/scripts/ensure-blog-discussions.sh
@@ -41,7 +43,7 @@ jobs:
       # 2.4b. Export discussion URLs so "Discuss this post" and like/comment link to the right thread
       - name: Export blog discussion URLs
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           chmod +x .github/scripts/export-blog-discussion-urls.sh
           ./.github/scripts/export-blog-discussion-urls.sh
@@ -53,42 +55,71 @@ jobs:
           ORG: genomicsxai
           TEAM: editors
         run: |
-          mkdir -p data
-          if [ -z "$GH_TOKEN" ]; then
-            echo '[]' > data/editors.json
-            echo "No GH_EDITORS_TOKEN set; editorial board will be empty. Add a PAT with read:org to populate."
+          chmod +x .github/scripts/fetch-editors.sh
+          ./.github/scripts/fetch-editors.sh
+
+      # 2.6. Sync Zenodo DOI metadata for accepted blog posts changed in this push
+      - name: Detect changed blog posts
+        id: changed_blogs
+        shell: bash
+        run: |
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+          mapfile -t files < <(git diff --name-only "$BEFORE" "$AFTER" -- 'content/blogs/*/index.md' | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            echo "accepted_count=0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          PAGE=1
-          ALL=""
-          while true; do
-            RES=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github.v3+json" \
-              "https://api.github.com/orgs/${ORG}/teams/${TEAM}/members?per_page=100&page=${PAGE}")
-            CODE=$(echo "$RES" | tail -n1)
-            BODY=$(echo "$RES" | sed '$d')
-            if [ "$CODE" != "200" ]; then
-              echo "GitHub API returned $CODE; writing empty editors list."
-              echo '[]' > data/editors.json
-              exit 0
+          printf '%s\n' "${files[@]}" > /tmp/changed-blog-posts.txt
+          accepted_count=0
+          while IFS= read -r path; do
+            status=$(ruby -e 'require "yaml"; require "date"; raw = File.read(ARGV[0]); match = raw.match(/\A---\s*\n(.*?)\n---\s*\n/m) or abort("Missing frontmatter in #{ARGV[0]}"); fm = YAML.safe_load(match[1], permitted_classes: [Date, Time], aliases: true) || {}; print fm["status"].to_s' "$path")
+            if [ "$status" = "accepted" ]; then
+              accepted_count=$((accepted_count + 1))
             fi
-            COUNT=$(echo "$BODY" | jq -r 'length')
-            [ "$COUNT" -eq 0 ] && break
-            if [ -z "$ALL" ]; then ALL="$BODY"; else ALL=$(printf '%s\n%s' "$ALL" "$BODY" | jq -s 'add'); fi
-            [ "$COUNT" -lt 100 ] && break
-            PAGE=$((PAGE+1))
-          done
-          # Fetch each member's profile for display name (GET /users/{login} returns .name)
-          OUT="[]"
-          for login in $(echo "$ALL" | jq -r '.[].login'); do
-            USER=$(curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/users/${login}")
-            NAME=$(echo "$USER" | jq -r '.name // empty')
-            URL=$(echo "$USER" | jq -r '.html_url // empty')
-            [ -z "$URL" ] && URL="https://github.com/${login}"
-            ENTRY=$(jq -nc --arg login "$login" --arg url "$URL" --arg name "$NAME" '{login: $login, url: $url, name: (if $name == "" then null else $name end)}')
-            OUT=$(echo "$OUT" "$ENTRY" | jq -s '.[0] + [.[1]]')
-          done
-          echo "$OUT" > data/editors.json
-          echo "Fetched $(jq length data/editors.json) editor(s)."
+          done < /tmp/changed-blog-posts.txt
+          echo "count=${#files[@]}" >> "$GITHUB_OUTPUT"
+          echo "accepted_count=${accepted_count}" >> "$GITHUB_OUTPUT"
+          echo "Changed blog posts:"
+          cat /tmp/changed-blog-posts.txt
+
+      - name: Validate required publish secrets
+        env:
+          ZENODO_API_TOKEN: ${{ secrets.ZENODO_API_TOKEN }}
+        run: |
+          if [ "${{ steps.changed_blogs.outputs.accepted_count }}" != "0" ]; then
+            if [ -z "$ZENODO_API_TOKEN" ]; then
+              echo "ZENODO_API_TOKEN is required when accepted blog posts changed in this deploy."
+              exit 1
+            fi
+          fi
+
+      - name: Sync Zenodo DOI metadata
+        if: steps.changed_blogs.outputs.count != '0'
+        env:
+          ZENODO_API_TOKEN: ${{ secrets.ZENODO_API_TOKEN }}
+          ZENODO_COMMUNITY: ${{ secrets.ZENODO_COMMUNITY }}
+          SITE_URL: https://genomicsxai.github.io
+        run: |
+          chmod +x .github/scripts/sync-zenodo-dois.rb
+          ruby .github/scripts/sync-zenodo-dois.rb $(tr '\n' ' ' < /tmp/changed-blog-posts.txt)
+
+      - name: Commit Zenodo metadata
+        if: steps.changed_blogs.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GH_CONTENTS_WRITE_TOKEN || github.token }}
+        run: |
+          if [ -z "$(git status --porcelain -- data/zenodo.json)" ]; then
+            echo "No Zenodo metadata changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git add data/zenodo.json
+          git commit -m "chore: sync Zenodo DOI metadata"
+          git push
 
       # 3. Build the Hugo site
       - name: Build
@@ -110,11 +141,8 @@ jobs:
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v4
         with:
-          # Use PAT to bypass branch protection rules
-          # Fallback to GITHUB_TOKEN if PAT is not set
-          github_token: ${{ secrets.GH_PAGES_TOKEN || secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
           publish_branch: gh-pages
           # keep_files: true preserves the previews/ subdirectory across deploys
           keep_files: true
-
