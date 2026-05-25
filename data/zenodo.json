@@ -149,5 +149,24 @@
         "notes": "Initial Zenodo community token validation post"
       }
     }
+  },
+  "2026-009": {
+    "conceptrecid": "20386186",
+    "current_revision": 1,
+    "current_doi": "10.5281/zenodo.20386187",
+    "current_doi_url": "https://doi.org/10.5281/zenodo.20386187",
+    "current_zenodo_url": "https://zenodo.org/records/20386187",
+    "current_deposition_id": 20386187,
+    "revisions": {
+      "1": {
+        "doi": "10.5281/zenodo.20386187",
+        "doi_url": "https://doi.org/10.5281/zenodo.20386187",
+        "zenodo_url": "https://zenodo.org/records/20386187",
+        "deposition_id": 20386187,
+        "record_id": 20386187,
+        "date": "2026-05-25",
+        "notes": "Temporary Scholar and Zenodo pipeline validation post"
+      }
+    }
   }
 }
