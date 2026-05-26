@@ -19,3 +19,6 @@ jobs:
 
       - run: hugo --minify
 
+      - name: Validate Google Scholar metadata
+        run: |
+          ruby .github/scripts/validate-scholar-metadata.rb

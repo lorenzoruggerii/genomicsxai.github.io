@@ -125,6 +125,12 @@ jobs:
       - name: Build
         run: hugo --minify
 
+      - name: Validate Google Scholar metadata
+        env:
+          SITE_URL: https://genomicsxai.github.io
+        run: |
+          ruby .github/scripts/validate-scholar-metadata.rb --require-accepted-doi
+
       # 3.5. Verify build output
       - name: List built files
         run: |
