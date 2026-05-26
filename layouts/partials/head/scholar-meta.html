@@ -1,7 +1,6 @@
 {{- if and .IsPage (eq .Section "blogs") (eq .Params.status "accepted") -}}
 {{- $citation := partial "helper/citation-data.html" . -}}
 {{- $publicationDate := .Params.date_accepted | default .Date -}}
-{{- $description := partialCached "data/description" . .RelPermalink -}}
 <meta name="citation_title" {{ printf "content=%q" $citation.title | safeHTMLAttr }}>
 {{- range $citation.authors }}
 <meta name="citation_author" {{ printf "content=%q" . | safeHTMLAttr }}>
@@ -23,8 +22,5 @@
 {{- end }}
 {{- with .Params.tags }}
 <meta name="citation_keywords" {{ printf "content=%q" (delimit . "; ") | safeHTMLAttr }}>
-{{- end }}
-{{- with $description }}
-<meta name="citation_abstract" {{ printf "content=%q" . | safeHTMLAttr }}>
 {{- end }}
 {{- end -}}
