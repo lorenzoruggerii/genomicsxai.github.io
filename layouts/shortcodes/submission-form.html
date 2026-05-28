@@ -224,7 +224,7 @@
       <!-- Image upload, co-located with the body -->
       <div id="submit-form__images-subsection" class="submit-form__body-images">
         <h4 class="submit-form__subsection-title">Images</h4>
-        <p class="submit-form__help">Upload images you want to embed. Max 10 MB per file, 50 MB total. Type an optional <strong>caption</strong> next to each thumbnail (shown as the figure legend on the published page), then click <strong>Insert</strong> to drop a placeholder into the text above.</p>
+        <p class="submit-form__help">Upload images you want to embed. Max 10 MB per file, 50 MB total. Type an optional <strong>caption</strong> next to each thumbnail (shown as the figure legend on the published page), then click <strong>Insert</strong> to drop a placeholder into the text above. Click <strong>☆ Featured</strong> on any image to use it as the post's thumbnail (sets <code>image:</code> in the frontmatter).</p>
 
         <!-- Existing images carried over from the published post (update mode only) -->
         <div id="submit-form__existing-images-wrap" class="submit-form__existing-images" hidden>
@@ -243,6 +243,9 @@
 
     <!-- Submit -->
     <div id="submit-form__actions" class="submit-form__section">
+      <div id="submit-form__missing-summary" class="submit-form__missing-summary" hidden>
+        Please complete: <span id="submit-form__missing-list"></span>
+      </div>
       <button type="button" id="submit-form__submit-btn" class="submit-form__btn submit-form__btn--primary submit-form__btn--large" disabled>
         Submit Blog Post
       </button>
