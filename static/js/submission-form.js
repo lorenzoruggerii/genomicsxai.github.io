@@ -37,6 +37,19 @@
     try { return el ? JSON.parse(el.textContent) : []; } catch (e) { return []; }
   })();
 
+  // Human-readable labels for the keys Validate.run returns — used by
+  // revalidate() to populate the missing-fields summary above the Submit
+  // button. Keep aligned with the keys assigned in Validate.run.
+  var FIELD_LABELS = {
+    title: 'Title',
+    authors: 'Authors',
+    tags: 'Tags',
+    scope: 'Scope',
+    audience: 'Audience',
+    labs: 'Lab',
+    discipline: 'Discipline',
+  };
+
   // ── Utility ──
   function $(sel, ctx) { return (ctx || document).querySelector(sel); }
   function $$(sel, ctx) { return Array.from((ctx || document).querySelectorAll(sel)); }
@@ -501,6 +514,11 @@
     // filename (sanitized) -> caption string. Populated as the user types in the
     // per-thumb caption input; reset on removeFile/clear.
     captions: {},
+    // Sanitized filename of the image the author has marked as the post's
+    // thumbnail/featured image (serialized as `image:` in YAML frontmatter).
+    // May reference a new upload OR an existing image (update mode) — both
+    // render paths share this single piece of state. Empty string = none.
+    featuredFilename: '',
 
     addFiles: function (fileList) {
       var errors = [];
@@ -538,13 +556,24 @@
 
     removeFile: function (index) {
       var f = this.files[index];
-      if (f) delete this.captions[this.sanitizeName(f.name)];
+      if (f) {
+        var name = this.sanitizeName(f.name);
+        delete this.captions[name];
+        if (this.featuredFilename === name) this.featuredFilename = '';
+      }
       this.files.splice(index, 1);
     },
 
     clear: function () {
       this.files = [];
       this.captions = {};
+      this.featuredFilename = '';
+    },
+
+    // Toggle: clicking the same image clears the selection; clicking a
+    // different one switches. Caller is responsible for re-rendering.
+    setFeatured: function (filename) {
+      this.featuredFilename = (this.featuredFilename === filename) ? '' : filename;
     },
 
     sanitizeName: function (name) {
@@ -569,8 +598,11 @@
       container.innerHTML = '';
       var self = this;
       this.files.forEach(function (f, i) {
+        var sanitized = self.sanitizeName(f.name);
+        var isFeatured = self.featuredFilename === sanitized;
         var thumb = document.createElement('div');
-        thumb.className = 'submit-form__image-thumb';
+        thumb.className = 'submit-form__image-thumb' +
+          (isFeatured ? ' submit-form__image-thumb--featured' : '');
         var url = URL.createObjectURL(f);
 
         var img = document.createElement('img');
@@ -585,15 +617,23 @@
         captionInput.className = 'submit-form__image-caption';
         captionInput.rows = 3;
         captionInput.placeholder = 'Caption (figure legend, optional)';
-        captionInput.value = self.captions[self.sanitizeName(f.name)] || '';
-        captionInput.dataset.filename = self.sanitizeName(f.name);
+        captionInput.value = self.captions[sanitized] || '';
+        captionInput.dataset.filename = sanitized;
 
         var insertBtn = document.createElement('button');
         insertBtn.type = 'button';
         insertBtn.className = 'submit-form__image-insert';
-        insertBtn.dataset.filename = self.sanitizeName(f.name);
+        insertBtn.dataset.filename = sanitized;
         insertBtn.title = 'Insert at cursor in body';
         insertBtn.textContent = 'Insert';
+
+        var featuredBtn = document.createElement('button');
+        featuredBtn.type = 'button';
+        featuredBtn.className = 'submit-form__image-featured' +
+          (isFeatured ? ' is-active' : '');
+        featuredBtn.dataset.filename = sanitized;
+        featuredBtn.title = 'Set as post thumbnail (image: in frontmatter)';
+        featuredBtn.textContent = isFeatured ? '★ Featured' : '☆ Featured';
 
         var btn = document.createElement('button');
         btn.type = 'button';
@@ -606,6 +646,7 @@
         thumb.appendChild(span);
         thumb.appendChild(captionInput);
         thumb.appendChild(insertBtn);
+        thumb.appendChild(featuredBtn);
         thumb.appendChild(btn);
         container.appendChild(thumb);
       });
@@ -618,6 +659,16 @@
         btn.addEventListener('click', function () {
           self.removeFile(parseInt(btn.dataset.index, 10));
           self.renderPreviews();
+          if (UpdateMode.active) FormController.renderExistingImages();
+          FormController.revalidate();
+        });
+      });
+      $$('.submit-form__image-featured').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          self.setFeatured(btn.dataset.filename);
+          self.renderPreviews();
+          if (UpdateMode.active) FormController.renderExistingImages();
+          FormController.revalidate();
         });
       });
       $$('.submit-form__image-insert').forEach(function (btn) {
@@ -1009,6 +1060,13 @@
           };
           this.populateFields(UpdateMode.existingFrontmatter || {});
           this.setBody(UpdateMode.existingBody || '');
+          // Carry over the published post's `image:` so the existing-image
+          // thumb shows ★ Featured on load. User can re-pick from new
+          // uploads or clear via the toggle.
+          var existingImage = (UpdateMode.existingFrontmatter || {}).image;
+          ImageHandler.featuredFilename = existingImage
+            ? String(existingImage).toLowerCase()
+            : '';
           this.renderExistingImages();
           show($('#submit-form__fields'));
           show($('#submit-form__body-section'));
@@ -1059,8 +1117,11 @@
       imgFiles.forEach(function (f) {
         var thumb = document.createElement('div');
         var removed = !!UpdateMode.removedExistingImages[f.name];
+        var fname = f.name.toLowerCase();
+        var isFeatured = ImageHandler.featuredFilename === fname;
         thumb.className = 'submit-form__image-thumb submit-form__image-thumb--existing' +
-          (removed ? ' submit-form__image-thumb--removed' : '');
+          (removed ? ' submit-form__image-thumb--removed' : '') +
+          (isFeatured ? ' submit-form__image-thumb--featured' : '');
 
         var img = document.createElement('img');
         img.src = 'https://raw.githubusercontent.com/' + CONFIG.OWNER + '/' + CONFIG.REPO +
@@ -1099,6 +1160,19 @@
           FormController.revalidate();
         });
 
+        var featuredBtn = document.createElement('button');
+        featuredBtn.type = 'button';
+        featuredBtn.className = 'submit-form__image-featured' +
+          (isFeatured ? ' is-active' : '');
+        featuredBtn.title = 'Set as post thumbnail (image: in frontmatter)';
+        featuredBtn.textContent = isFeatured ? '★ Featured' : '☆ Featured';
+        featuredBtn.addEventListener('click', function () {
+          ImageHandler.setFeatured(fname);
+          FormController.renderExistingImages();
+          ImageHandler.renderPreviews();
+          FormController.revalidate();
+        });
+
         var keepBtn = document.createElement('button');
         keepBtn.type = 'button';
         keepBtn.className = 'submit-form__image-keep';
@@ -1108,14 +1182,23 @@
             delete UpdateMode.removedExistingImages[f.name];
           } else {
             UpdateMode.removedExistingImages[f.name] = true;
+            // If the user is removing the existing image they had featured,
+            // also drop the featured selection so submit doesn't fail the
+            // "image must exist" sanity check.
+            if (ImageHandler.featuredFilename === fname) {
+              ImageHandler.featuredFilename = '';
+              ImageHandler.renderPreviews();
+            }
           }
           FormController.renderExistingImages();
+          FormController.revalidate();
         });
 
         thumb.appendChild(img);
         thumb.appendChild(span);
         thumb.appendChild(captionInput);
         thumb.appendChild(insertBtn);
+        thumb.appendChild(featuredBtn);
         thumb.appendChild(keepBtn);
         container.appendChild(thumb);
       });
@@ -1233,6 +1316,13 @@
         self.parsed = result;
         self.populateFields(result.frontmatter);
         self.setBody(result.body || '');
+        // Mirror an `image: foo.png` from the uploaded frontmatter into the
+        // ★ Featured selection so the right thumbnail lights up as soon as
+        // the user drops foo.png into the Images section.
+        if (result.frontmatter && result.frontmatter.image) {
+          ImageHandler.featuredFilename = String(result.frontmatter.image).toLowerCase();
+          ImageHandler.renderPreviews();
+        }
         self.revalidate();
         show($('#submit-form__fields'));
         show($('#submit-form__body-section'));
@@ -1417,6 +1507,17 @@
       var labsVal = ($('#sf-labs') || {}).value || '';
       fm.labs = labsVal.split(',').map(function (l) { return l.trim(); }).filter(Boolean);
 
+      // Featured/thumbnail image — driven by the ★ Featured toggle on the
+      // image previews. The post-submit sanity check (around line 1543)
+      // verifies the named image still exists in the uploads before the PR
+      // is opened, so a stale value (e.g. user deselected after upload)
+      // gets cleaned up there too.
+      if (ImageHandler.featuredFilename) {
+        fm.image = ImageHandler.featuredFilename;
+      } else {
+        delete fm.image;
+      }
+
       fm.date = ($('#sf-date') || {}).value || today();
       fm.date_submitted = fm.date_submitted || today();
       // DOI is assigned by Zenodo on publication, not set by the author.
@@ -1464,6 +1565,23 @@
         var errEl = $('#sf-error-' + field);
         if (errEl) { errEl.textContent = errors[field]; show(errEl); }
       });
+
+      // Mirror the missing/invalid fields into a summary line right above
+      // the Submit button so authors who've scrolled past the per-field
+      // errors can still tell at a glance what's blocking submission.
+      var missingSummary = $('#submit-form__missing-summary');
+      var missingList = $('#submit-form__missing-list');
+      if (missingSummary && missingList) {
+        var keys = Object.keys(errors);
+        if (keys.length === 0) {
+          hide(missingSummary);
+        } else {
+          missingList.textContent = keys.map(function (k) {
+            return FIELD_LABELS[k] || k;
+          }).join(', ');
+          show(missingSummary);
+        }
+      }
 
       var submitBtn = $('#submit-form__submit-btn');
       if (submitBtn) submitBtn.disabled = Validate.hasErrors(errors);
