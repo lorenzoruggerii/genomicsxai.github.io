@@ -91,7 +91,69 @@
         return '$' + tex.trim() + '$';
       },
     });
+    // GFM pipe-table converter. TinyMCE\'s table plugin emits standard
+    // <table><tbody>...</tbody></table>; Turndown\'s default leaves that
+    // as raw HTML in the markdown output, which Hugo\'s goldmark/GFM
+    // renders inconsistently (often broken if the block ends up adjacent
+    // to a paragraph). Emit a proper pipe-table block so the published
+    // post gets the same styled table a hand-written |---|---| would.
+    turndown.addRule('gfmTable', {
+      filter: 'table',
+      replacement: function (_content, node) { return convertTableToGfm(node); },
+    });
     return turndown;
+  }
+
+  // Walk an HTML <table> and emit a GFM pipe-table block. First row
+  // becomes the header; the rest become body rows; the separator runs
+  // the full cell-count width. Cell content is run back through the
+  // shared Turndown instance so inline formatting (bold/italic/code/
+  // links) survives — collapsed to a single line and pipe-escaped so
+  // the cell stays inside its `| ... |` boundary.
+  function convertTableToGfm(table) {
+    var rows = Array.prototype.slice.call(table.querySelectorAll('tr'));
+    if (rows.length === 0) return '';
+
+    var cellCount = 0;
+    rows.forEach(function (row) {
+      var cells = row.querySelectorAll('td, th');
+      if (cells.length > cellCount) cellCount = cells.length;
+    });
+    if (cellCount === 0) return '';
+
+    function cellMd(cell) {
+      // Nested <table> inside a cell can\'t round-trip to a pipe table
+      // (GFM has no nested-table syntax); flatten to text so we don\'t
+      // recurse into an invalid construct.
+      if (cell.querySelector('table')) {
+        return (cell.textContent || '')
+          .replace(/\|/g, '\\|').replace(/\s+/g, ' ').trim();
+      }
+      var md = getTurndown().turndown(cell.innerHTML || '');
+      return md
+        .replace(/\|/g, '\\|')
+        .replace(/\r?\n+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function rowMd(row) {
+      var cells = Array.prototype.slice.call(row.querySelectorAll('td, th'));
+      var parts = [];
+      for (var i = 0; i < cellCount; i++) {
+        parts.push(cells[i] ? cellMd(cells[i]) : '');
+      }
+      return '| ' + parts.join(' | ') + ' |';
+    }
+
+    var lines = [rowMd(rows[0])];
+    var seps = [];
+    for (var k = 0; k < cellCount; k++) seps.push('---');
+    lines.push('| ' + seps.join(' | ') + ' |');
+    for (var j = 1; j < rows.length; j++) {
+      lines.push(rowMd(rows[j]));
+    }
+    return '\n\n' + lines.join('\n') + '\n\n';
   }
 
   // ── LaTeX math rendering ─────────────────────────────────────────────────
