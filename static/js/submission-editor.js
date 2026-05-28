@@ -27,8 +27,8 @@
   // a misconfigured page (logs once and bails so the rest of the form still
   // functions on the raw textareas as a fallback).
   document.addEventListener('DOMContentLoaded', function () {
-    if (!window.tinymce || !window.TurndownService || !window.marked) {
-      console.warn('[submission-editor] tinymce/turndown/marked not loaded — falling back to plain textareas.');
+    if (!window.tinymce || !window.TurndownService || !window.marked || !window.katex) {
+      console.warn('[submission-editor] tinymce/turndown/marked/katex not loaded — falling back to plain textareas.');
       // Make sure the hidden textareas are visible so the user can still type.
       var bodyTa = document.getElementById('submit-form__body-input');
       var summaryTa = document.getElementById('submit-form__summary-input');
@@ -69,17 +69,106 @@
           : '\n\n[image: ' + filename + ']\n\n';
       },
     });
-    // Turndown by default mangles consecutive newlines; that's fine for
-    // markdown, but leave block math alone.
+    // Math chips round-trip via their data-tex attribute, which holds the
+    // original LaTeX source. The KaTeX-rendered HTML inside the chip is
+    // for display only and isn't serialized back.
     turndown.addRule('blockMath', {
       filter: function (node) {
-        return node.nodeName === 'DIV' && node.getAttribute('data-math') === 'block';
+        return (node.nodeName === 'DIV' || node.nodeName === 'FIGURE') &&
+          node.getAttribute('data-math') === 'block';
       },
       replacement: function (_content, node) {
-        return '\n\n$$' + (node.textContent || '').trim() + '$$\n\n';
+        var tex = node.getAttribute('data-tex') || node.textContent || '';
+        return '\n\n$$' + tex.trim() + '$$\n\n';
+      },
+    });
+    turndown.addRule('inlineMath', {
+      filter: function (node) {
+        return node.nodeName === 'SPAN' && node.getAttribute('data-math') === 'inline';
+      },
+      replacement: function (_content, node) {
+        var tex = node.getAttribute('data-tex') || node.textContent || '';
+        return '$' + tex.trim() + '$';
       },
     });
     return turndown;
+  }
+
+  // ── LaTeX math rendering ─────────────────────────────────────────────────
+  // KaTeX renders the chip HTML; the original source is preserved on
+  // data-tex so the Turndown rules above can round-trip back to $...$ /
+  // $$...$$ markdown unchanged.
+  function renderMathChip(tex, displayMode) {
+    var html;
+    try {
+      html = window.katex.renderToString(tex, {
+        displayMode: !!displayMode,
+        throwOnError: false,
+        strict: 'ignore',
+        // Emit semantic MathML and let the browser render it natively
+        // (Chrome 109+, Safari, Firefox). KaTeX's HTML output uses
+        // top:-Xem offsets that rely on strut elements to push the
+        // line-box; inside TinyMCE's iframe those struts don't end up
+        // tall enough and superscripts paint above the chip. MathML
+        // avoids that whole chain — slightly different glyphs from the
+        // published post, but always positioned correctly.
+        output: 'mathml',
+      });
+    } catch (e) {
+      // Defensive: throwOnError:false should keep KaTeX from throwing,
+      // but if anything else goes wrong show the raw source so the author
+      // can still see and fix their input.
+      html = '<span class="sf-math-error">' + escapeHtml(tex) + '</span>';
+    }
+    var tag = displayMode ? 'div' : 'span';
+    var cls = displayMode ? 'sf-math sf-math--block' : 'sf-math sf-math--inline';
+    var dm = displayMode ? 'block' : 'inline';
+    return (
+      '<' + tag + ' class="' + cls + '" data-math="' + dm + '" ' +
+      'data-tex="' + escapeAttr(tex) + '" contenteditable="false">' +
+      html +
+      '</' + tag + '>'
+    );
+  }
+
+  // Marked v13 extension: tokenise inline $...$ and block $$...$$ before
+  // they reach the default text renderer (which would otherwise emit them
+  // as literal characters — the root cause of #69).
+  //
+  // Inline rule requires non-whitespace adjacent to both delimiters so we
+  // don't trigger on prices ($5) or stray dollar signs. Block rule is
+  // greedy across newlines.
+  function registerMarkedMathExtension() {
+    if (!window.marked || !window.marked.use) return;
+    if (window.marked.__sfMathRegistered) return;
+    window.marked.__sfMathRegistered = true;
+    window.marked.use({
+      extensions: [
+        {
+          name: 'sfBlockMath',
+          level: 'block',
+          start: function (src) { var i = src.indexOf('$$'); return i < 0 ? undefined : i; },
+          tokenizer: function (src) {
+            var m = /^\$\$([\s\S]+?)\$\$\s*/.exec(src);
+            if (!m) return undefined;
+            return { type: 'sfBlockMath', raw: m[0], tex: m[1].trim() };
+          },
+          renderer: function (token) { return renderMathChip(token.tex, true); },
+        },
+        {
+          name: 'sfInlineMath',
+          level: 'inline',
+          start: function (src) { var i = src.indexOf('$'); return i < 0 ? undefined : i; },
+          tokenizer: function (src) {
+            // $...$ where both edges are non-whitespace; reject $$ (block).
+            var m = /^\$(?!\$)((?:[^\s$][^$\n]*?[^\s$])|(?:[^\s$\n]))\$/.exec(src);
+            if (!m) return undefined;
+            return { type: 'sfInlineMath', raw: m[0], tex: m[1] };
+          },
+          renderer: function (token) { return renderMathChip(token.tex, false); },
+        },
+      ],
+    });
   }
 
   function htmlToMarkdown(html) {
@@ -191,6 +280,9 @@
       if (window.marked && window.marked.setOptions) {
         window.marked.setOptions({ gfm: true, breaks: false });
       }
+      // Register the $...$ / $$...$$ extension so math tokens become
+      // KaTeX-rendered chips instead of literal text.
+      registerMarkedMathExtension();
       this._initEditor('#submit-form__summary-editor', { isSummary: true })
         .then(function (ed) { self.summary = ed; });
       this._initEditor('#submit-form__body-editor', { isSummary: false })
@@ -212,6 +304,24 @@
         branding: false,
         menubar: false,
         statusbar: false,
+        // Allow MathML elements through TinyMCE's content filter. Without
+        // these, KaTeX's <math>...<mi>E</mi>...<msup><mi>c</mi><mn>2</mn>
+        // </msup>...</math> gets reduced to the inner text content
+        // ("E=mc2E=mc^2" — the second half being the <annotation> source)
+        // because TinyMCE strips elements it doesn't know about.
+        // custom_elements registers the tag names; ~ marks them as inline
+        // (no auto-block-wrap). extended_valid_elements lets every
+        // attribute through so KaTeX's inline styles/classes survive.
+        custom_elements:
+          '~math,~semantics,~mrow,~mi,~mo,~mn,~ms,~mtext,~mspace,' +
+          '~mfrac,~msqrt,~mroot,~msup,~msub,~msubsup,~mover,~munder,' +
+          '~munderover,~mtable,~mtr,~mtd,~mphantom,~menclose,~mpadded,' +
+          '~annotation,~annotation-xml',
+        extended_valid_elements:
+          'math[*],semantics[*],mrow[*],mi[*],mo[*],mn[*],ms[*],mtext[*],' +
+          'mspace[*],mfrac[*],msqrt[*],mroot[*],msup[*],msub[*],msubsup[*],' +
+          'mover[*],munder[*],munderover[*],mtable[*],mtr[*],mtd[*],' +
+          'mphantom[*],menclose[*],mpadded[*],annotation[*],annotation-xml[*]',
         height: opts.isSummary ? 180 : 480,
         min_height: opts.isSummary ? 120 : 320,
         plugins: 'lists link autolink table codesample paste autoresize wordcount',
@@ -236,6 +346,9 @@
           { text: 'Markdown', value: 'markdown' },
           { text: 'Plain text', value: 'text' },
         ],
+        // Pull KaTeX's stylesheet into the iframe so the rendered math
+        // chips look identical to the published post.
+        content_css: ['https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css'],
         // Style the image-reference chip inside the editor iframe. The chip
         // is just an inline marker for "an image will go here" — the actual
         // figure only renders on the published page.
@@ -255,7 +368,24 @@
           'line-height:1.5;overflow-x:auto;}' +
           'pre code{background:transparent;border:0;padding:0;color:inherit;}' +
           'code{background:#f1f3f5;border:1px solid #e2e8f0;border-radius:3px;padding:1px 5px;' +
-          'font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:0.92em;color:#b13a5e;}',
+          'font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:0.92em;color:#b13a5e;}' +
+          // Math chip styling — atomic, non-editable, visually distinct from
+          // surrounding prose so authors can see where math lives. Click-to-
+          // delete works as normal; the chip round-trips via its data-tex
+          // attribute (see turndown rules above). MathML inside the chip
+          // sizes itself correctly, so the chip just needs a styled box.
+          '.sf-math{background:#fffbeb;border:1px solid #fde68a;border-radius:4px;' +
+          'cursor:default;-webkit-user-select:none;user-select:none;}' +
+          '.sf-math--inline{display:inline-block;padding:2px 6px;margin:0 2px;' +
+          'vertical-align:middle;}' +
+          '.sf-math--block{display:block;text-align:center;padding:6px 12px;' +
+          'margin:14px auto;}' +
+          '.sf-math math{font-size:1.1em;}' +
+          // Annotations carry the LaTeX source for round-tripping; browsers
+          // that fully render MathML hide them automatically inside
+          // <semantics>, but force it for any that don\'t.
+          '.sf-math annotation,.sf-math annotation-xml{display:none;}' +
+          '.sf-math-error{color:#b91c1c;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:0.9em;}',
         // Tighten paste cleanup. TinyMCE handles MS Word / Google Docs by
         // default; these toggles strip extra inline styles so the markdown
         // round-trip is clean.
@@ -317,6 +447,13 @@
           editor.on('input change keyup undo redo blur SetContent', function () {
             self._syncToTextarea(editor, opts.isSummary);
           });
+          // Re-parse the markdown on blur so any $...$ / $$...$$ the user
+          // just typed becomes a KaTeX-rendered chip. The first handler
+          // above has already synced the latest markdown to the textarea
+          // by the time this fires, so we can read straight from it.
+          editor.on('blur', function () {
+            self._rerenderMath(editor, opts.isSummary);
+          });
         },
       }).then(function (editors) {
         // tinymce.init resolves with an array of editor instances.
@@ -356,6 +493,23 @@
       if (refs.FormController && typeof refs.FormController.revalidate === 'function') {
         try { refs.FormController.revalidate(); } catch (_) { /* ignore */ }
       }
+    },
+
+    // Re-parse the textarea's markdown back to HTML so any newly-typed
+    // $...$ / $$...$$ that's still sitting as literal text becomes a
+    // KaTeX-rendered chip. Called on editor blur. Skipped when the
+    // markdown has no $ — almost all blurs in practice.
+    _rerenderMath: function (editor, isSummary) {
+      if (!editor) return;
+      var ta = document.getElementById(
+        isSummary ? 'submit-form__summary-input' : 'submit-form__body-input'
+      );
+      if (!ta) return;
+      var md = ta.value || '';
+      if (md.indexOf('$') < 0) return;
+      var newHtml = markdownToHtml(md);
+      if (newHtml === editor.getContent()) return;
+      editor.setContent(newHtml);
     },
 
     // ── Public API used by submission-form.js ──────────────────────────────

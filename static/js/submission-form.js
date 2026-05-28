@@ -723,7 +723,6 @@
       lines.push('post_id: "' + fm.post_id + '"');
       lines.push('title: "' + (fm.title || '').replace(/"/g, '\\"') + '"');
       if (fm.image) lines.push('image: "' + fm.image + '"');
-      if (fm.math) lines.push('math: true');
       lines.push('');
 
       // authors
@@ -1340,10 +1339,6 @@
       $$('.submit-form__discipline').forEach(function (cb) {
         cb.checked = existingTags.indexOf(cb.dataset.slug) !== -1;
       });
-
-      // Math checkbox
-      var mathCb = $('#sf-math');
-      if (mathCb) mathCb.checked = !!fm.math;
     },
 
     bindAuthorRemoveButtons: function () {
@@ -1425,7 +1420,6 @@
       fm.date = ($('#sf-date') || {}).value || today();
       fm.date_submitted = fm.date_submitted || today();
       // DOI is assigned by Zenodo on publication, not set by the author.
-      fm.math = ($('#sf-math') || {}).checked || false;
 
       // Auto-set fields
       fm.editor = fm.editor || 'TBD';

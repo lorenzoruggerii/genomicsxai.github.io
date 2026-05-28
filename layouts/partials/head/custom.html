@@ -30,8 +30,15 @@
      them.
 
      Hashes computed against npm-published bytes (TinyMCE 7.6.0,
-     Turndown 7.2.0, Marked 13.0.3). Update both `src` version and
-     `integrity` together. */}}
+     Turndown 7.2.0, Marked 13.0.3, KaTeX 0.16.11). Update both `src`
+     version and `integrity` together.
+
+     KaTeX is loaded for the submission editor only — it renders the inline
+     ($...$) and block ($$...$$) math chips inside the TinyMCE iframe so
+     authors see the same KaTeX output the published post will have
+     (params.article.math). The katex.min.css file pulls webfonts from
+     jsDelivr at runtime which carry no SRI (same caveat as TinyMCE's
+     dynamic theme/plugin loads). */}}
 <script src="https://cdn.jsdelivr.net/npm/tinymce@7.6.0/tinymce.min.js"
         integrity="sha384-tra1rGs8OanGKq1dD4jTW195QKiytSZz7fE5gSASuwkxuhlG+KjvAVlyHOB2Mlva"
         crossorigin="anonymous"
@@ -42,6 +49,14 @@
         defer></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@13.0.3/marked.min.js"
         integrity="sha384-YTBHtsL8yVTHcLakYNyrOfK3K+QQcXiECuaALJ+3j7Mo681Rtzadt8NR6WrZH+eQ"
+        crossorigin="anonymous"
+        defer></script>
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
+      integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+"
+      crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"
+        integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg"
         crossorigin="anonymous"
         defer></script>
 <script src="{{ "js/submission-form.js" | relURL }}" defer></script>
