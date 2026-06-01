@@ -21,6 +21,15 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Need full history for the git-log-based new-post filter below
+          # (`git log --follow` on each blog index.md to find its first-add
+          # commit date). The default fetch-depth: 1 only fetches the tip,
+          # so the "oldest" commit visible to git log is whatever single
+          # commit was cloned — which makes any post touched by the tip
+          # commit look new. With fetch-depth: 0 the filter can find each
+          # post's actual initial commit.
+          fetch-depth: 0
 
       - name: Find new posts and build email
         id: build
@@ -144,16 +153,24 @@ jobs:
 
           python3 - <<'PYEOF'
           import json, os, urllib.request, urllib.error
+          from datetime import datetime, timezone
 
           posts = json.load(open("/tmp/new_posts.json"))
           status = os.environ["STATUS"]
           api_key = os.environ["BUTTONDOWN_API_KEY"]
 
+          # Date suffix on every subject so Buttondown's email_duplicate
+          # dedup check (HTTP 400) doesn't reject this week's digest when a
+          # previous week's subject was identical — most often the multi-post
+          # case "...: N new posts", which would otherwise collide whenever
+          # N happens to be the same N weeks in a row.
+          today_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
           count = len(posts)
           if count == 1:
-              subject = f"New on Genomics × AI: {posts[0]['title']}"
+              subject = f"New on Genomics × AI: {posts[0]['title']} ({today_iso})"
           else:
-              subject = f"New on Genomics × AI: {count} new posts"
+              subject = f"New on Genomics × AI: {count} new posts ({today_iso})"
 
           # Build HTML email
           lines = [
