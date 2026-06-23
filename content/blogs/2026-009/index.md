@@ -1,7 +1,7 @@
 ---
 post_id: "2026-009"
 title: "Chorus: chatting with genomic oracles"
-image: "fig_architecture.png"
+image: "chorus_main.png"
 math: false
 authors: ["Dmitry Penzar", "Lorenzo Ruggeri", "Jiecong Lin", "Rosalba Giugno", "Luca Pinello"]
 authors_display:
@@ -190,11 +190,13 @@ We asked Chorus to score this credible set with AlphaGenome. In our run it ranke
 
 ### Step 2, cross-checking with other oracles, and an honest cell-type caveat
 
-> **Prompt:** Re-score the credible set with a ChromBPNet lung-fibroblast (IMR-90) DNase model. Does rs9504151 stay #1?
+> **Prompt:** Re-score the credible set with a ChromBPNet lung-fibroblast (IMR-90) DNase model and LegNet model trained on HepG2 cell-line. Does rs9504151 stay #1?
 
-This is where having several oracles helps, and also where a real limitation surfaces. We re-scored with a LegNet MPRA oracle and with a ChromBPNet model trained on lung-fibroblast DNase (IMR-90). In our run rs9504151 stayed at **rank 1** with ChromBPNet on the lung-fibroblast model.
+This is where having several oracles helps, and also where a real limitation surfaces. We re-scored the set of variants with a LegNet MPRA oracle trained on HepG2 cell line and with a ChromBPNet model trained on lung-fibroblast DNase (IMR-90). In our run, rs9504151 stayed at rank 1 with ChromBPNet on the lung-fibroblast model, and it also ranked first under the HepG2-trained LegNet model.
 
-The caveat is important. Only the ChromBPNet model here was matched to the relevant cell type, lung fibroblast. The MPRA reporter panels available to LegNet do not include a lung fibroblast (the available lines are K562, HepG2, and WTC11), so that line of evidence is cell-type-mismatched and should be weighted accordingly. You can only assess a variant in the cell types and assays your models actually cover, which is the central limitation of this entire approach, and one the Sniff authors stress as well: if the trait-relevant cell type is missing from a model's training data, the effect can be missed entirely.
+However, the caveat is important. Only the ChromBPNet model here was matched to the relevant cell type, lung fibroblast. The MPRA reporter panels available to LegNet do not include a lung fibroblast (the available lines are K562, HepG2, and WTC11), so that line of evidence is cell-type-mismatched and should be weighted accordingly. This is particularly relevant for the HepG2-trained LegNet signal, which reflects regulatory activity in a liver cancer context rather than lung fibroblasts. 
+
+You can only assess a variant in the cell types and assays your models actually cover, which is the central limitation of this entire approach, and one the Sniff authors stress as well: if the trait-relevant cell type is missing from a model's training data, the effect can be missed entirely.
 
 ### Step 3, identifying the disrupted factor
 
@@ -205,8 +207,6 @@ Which factor is disrupted could not be read straight off lung-fibroblast TF ChIP
 Both routes point to ATF4, matching the Sniff preprint's conclusion. The value is not the single answer but that it held up across models trained on different assays, even while the cell-type coverage stayed imperfect.
 
 ![In-silico saturation mutagenesis around rs9504151 in three oracles.](./fig_rs9504151_ism.png "Figure 6. In-silico saturation mutagenesis (score_ism) around rs9504151 in three independent oracles — LegNet (HepG2), AlphaGenome (lung fibroblast), and ChromBPNet (IMR-90). Each letter's height is how much mutating that reference base changes the prediction; all three converge on the same ATF4 motif (TGATGCAA) centred on the variant (dashed line).")
-
-> **Reproducibility note.** This analysis runs via `fine_map_causal_variant` with an LDlink token on current chorus `main`. A fresh re-run places **rs9504151 at rank 1 of the 56-variant credible set in both cell-type-matched oracles** — AlphaGenome and ChromBPNet (IMR-90 lung fibroblast) — with the r²≈0.93 neighbour rs62384944 a few ranks below. LegNet has no lung-fibroblast model, so it is cell-type-mismatched and is not used to adjudicate. The composite scores, allele-orientation handling, and the underlying correctness fixes are documented in the linked reproduction report.
 
 ---
 
