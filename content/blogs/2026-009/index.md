@@ -58,7 +58,7 @@ We are also honest about where the predictions fall short: effect sizes come out
 
 ## Motivation
 
-Interpreting noncoding variants is one of the central problems in human genetics: most GWAS associations and a large share of disease-relevant alleles sit outside coding regions, so their mechanisms stay opaque. Sequence-to-function (seq2func) models have become one of the most exciting developments in regulatory genomics for exactly this reason. Models like [Enformer](https://www.nature.com/articles/s41592-021-01252-x), [Borzoi](https://github.com/calico/borzoi), [ChromBPNet/BPNet](https://github.com/kundajelab/chrombpnet), [Sei](https://github.com/FunctionLab/sei-framework), [LegNet](https://github.com/autosome-ru/LegNet), and [AlphaGenome](https://www.nature.com/articles/s41586-025-10014-0) can now predict chromatin accessibility, transcription factor binding, gene expression, histone modifications, and splicing directly from DNA sequence across hundreds of cell types. Using them together, however, has remained surprisingly difficult.
+Interpreting noncoding variants is one of the central problems in human genetics: most GWAS associations and a large share of disease-relevant alleles sit outside coding regions, so their mechanisms stay opaque. Sequence-to-function (seq2func) models have become one of the most exciting developments in regulatory genomics for exactly this reason. Models like [Enformer](https://www.nature.com/articles/s41592-021-01252-x), [Borzoi](https://github.com/calico/borzoi), [ChromBPNet/BPNet](https://github.com/kundajelab/chrombpnet), [Sei](https://github.com/FunctionLab/sei-framework), [LegNet](https://github.com/autosome-ru/LegNet), [EPInformer-seq](https://www.nature.com/articles/s41467-026-70535-8) and [AlphaGenome](https://www.nature.com/articles/s41586-025-10014-0) can now predict chromatin accessibility, transcription factor binding, gene expression, histone modifications, and splicing directly from DNA sequence across hundreds of cell types. Using them together, however, has remained surprisingly difficult.
 
 > *Side note:* a seq2func model learns a direct mapping from DNA sequence to one or more measured molecular readouts (accessibility, binding, expression, and so on). Train it on the genome and you can then ask it about sequences the genome never contained, which is exactly what variant interpretation needs.
 
@@ -86,7 +86,7 @@ These seven oracles span a wide range of context windows and resolutions, which 
 |---|---|---|---|
 | **ChromBPNet / BPNet** | 2,114 bp | 1 bp | Chromatin accessibility (ChromBPNet) and TF binding (BPNet) at base-pair resolution |
 | **LegNet** | 200 bp | element-level | MPRA / reporter activity of short regulatory elements |
-| **EPInformer-seq** | 2,114 bp | element-level | Compact per-cell enhancer activity (DNase cut-sites + H3K27ac) across 11 Roadmap cell types |
+| **EPInformer-seq** | 2,114 bp | 1-bp / element-level | Compact per-cell enhancer activity (DNase cut-sites + H3K27ac) across 11 Roadmap cell types |
 | **Sei** | 4,096 bp | region-level | Regulatory effect across 21,907 chromatin profiles |
 | **Enformer** | 393,216 bp | 128 bp | Expression (CAGE), accessibility, histone marks across long context |
 | **Borzoi** | 524,288 bp | 32 bp | Enformer-style outputs plus RNA-seq coverage |
@@ -192,7 +192,7 @@ We asked Chorus to score this credible set with AlphaGenome. In our run it ranke
 
 > **Prompt:** Re-score the credible set with a ChromBPNet lung-fibroblast (IMR-90) DNase model and LegNet model trained on HepG2 cell-line. Does rs9504151 stay #1?
 
-This is where having several oracles helps, and also where a real limitation surfaces. We re-scored the set of variants with a LegNet MPRA oracle trained on HepG2 cell line and with a ChromBPNet model trained on lung-fibroblast DNase (IMR-90). In our run, rs9504151 stayed at rank 1 with ChromBPNet on the lung-fibroblast model, and it also ranked first under the HepG2-trained LegNet model.
+This is where having several oracles helps, and also where a real limitation surfaces. We re-scored the set of variants with a LegNet MPRA oracle trained on HepG2 cell line and with a ChromBPNet model trained on lung-fibroblast DNase (IMR-90). In our run, rs9504151 stayed at rank 1 with ChromBPNet on the lung-fibroblast model, and it also ranked second under the HepG2-trained LegNet model.
 
 However, the caveat is important. Only the ChromBPNet model here was matched to the relevant cell type, lung fibroblast. The MPRA reporter panels available to LegNet do not include a lung fibroblast (the available lines are K562, HepG2, and WTC11), so that line of evidence is cell-type-mismatched and should be weighted accordingly. This is particularly relevant for the HepG2-trained LegNet signal, which reflects regulatory activity in a liver cancer context rather than lung fibroblasts. 
 
